@@ -4,7 +4,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 
-/** 数据库连接工具：照搬旧项目 DBUtil 的写法，仅把库名改为 FerryDB */
+/** 数据库连接工具：照搬旧项目 DBUtil 的写法，仅把库名改为 FerSWryDB */
 public class DBUtil {
     private static final String DRIVER = "com.microsoft.sqlserver.jdbc.SQLServerDriver";
     private static final String URL =
