@@ -473,8 +473,6 @@ public class OrderDAO {
      * 改签：换班次换座位，记 change_log。
      * 事务内：新座位 UPDLOCK 锁定→已售、旧座位释放、班次已售调整、
      * 船票改绑新班次/座位、订单更新班次和金额、写改签日志。
-     */
-    /**
      * @return null 表示失败；否则返回给页面展示的结果说明（含差价收退情况）
      */
     public String change(int orderId, int newScheduleId, int newSeatId, int operatorId, String reason)
@@ -484,159 +482,49 @@ public class OrderDAO {
             conn = DBUtil.getConnection();
             conn.setAutoCommit(false);
 
-            // 1. 查原订单与原票
-            int oldScheduleId = 0, oldSeatId = 0;
-            BigDecimal oldPrice = null;
-            try (PreparedStatement ps = conn.prepareStatement(
-                    "SELECT o.schedule_id, t.seat_id, t.price FROM [order] o "
-                  + "JOIN ticket t ON t.order_id=o.id WHERE o.id=? AND o.status=N'已支付'")) {
-                ps.setInt(1, orderId);
-                try (ResultSet rs = ps.executeQuery()) {
-                    if (!rs.next()) { conn.rollback(); return null; }
-                    oldScheduleId = rs.getInt("schedule_id");
-                    oldSeatId = rs.getInt("seat_id");
-                    oldPrice = rs.getBigDecimal("price");
-                }
+            // 1-2. 校验原订单、目标座位、目标班次，以及同一证件的时段冲突（均带 UPDLOCK）
+            ChangeOrder current = findChangeableOrder(conn, orderId);
+            if (current == null) {
+                conn.rollback();
+                return null;
             }
-
-            // 2. UPDLOCK 锁新座位，确认可售（并发安全）
-            try (PreparedStatement ps = conn.prepareStatement(
-                    "SELECT seat_status FROM seat WITH (UPDLOCK, HOLDLOCK) WHERE id=? AND schedule_id=?")) {
-                ps.setInt(1, newSeatId);
-                ps.setInt(2, newScheduleId);
-                try (ResultSet rs = ps.executeQuery()) {
-                    if (!rs.next() || !"可售".equals(rs.getString("seat_status"))) {
-                        conn.rollback();
-                        return null;
-                    }
-                }
+            if (!lockSellableSeat(conn, newSeatId, newScheduleId)) {
+                conn.rollback();
+                return null;
             }
-            // 2b. 新班次必须是“售票中”且未发船（对标12306：改签目标必须可乘车）
-            String newSchedSql = "SELECT status, price, depart_time, arrive_time FROM schedule "
-                               + "WITH (UPDLOCK, HOLDLOCK) WHERE id=? AND is_deleted=0";
-            BigDecimal newPrice;
-            try (PreparedStatement ps = conn.prepareStatement(newSchedSql)) {
-                ps.setInt(1, newScheduleId);
-                try (ResultSet rs = ps.executeQuery()) {
-                    if (!rs.next()) { conn.rollback(); return null; }
-                    String st = rs.getString("status");
-                    Timestamp dep = rs.getTimestamp("depart_time");
-                    if (!"售票中".equals(st) || dep == null || !dep.after(new Timestamp(System.currentTimeMillis()))) {
-                        conn.rollback();
-                        return null;
-                    }
-                    newPrice = rs.getBigDecimal("price");
-                }
+            BigDecimal newPrice = lockSellableSchedulePrice(conn, newScheduleId);
+            if (newPrice == null) {
+                conn.rollback();
+                return null;
             }
-
-            // 2c. 改签后不能与其他有效票时段重叠（排除本订单自己的票）
-            String overlapSql = "SELECT COUNT(*) FROM ticket t WITH (UPDLOCK, HOLDLOCK) "
-                              + "JOIN schedule s ON s.id=t.schedule_id "
-                              + "JOIN schedule ns ON ns.id=? "
-                              + "WHERE t.id_card=? AND t.order_id<>? "
-                              + "AND t.status IN (N'待支付',N'已支付',N'已检票') "
-                              + "AND s.depart_time < ns.arrive_time AND s.arrive_time > ns.depart_time";
-            String idCard;
-            try (PreparedStatement ps = conn.prepareStatement("SELECT id_card FROM ticket WHERE order_id=?")) {
-                ps.setInt(1, orderId);
-                try (ResultSet rs = ps.executeQuery()) {
-                    idCard = rs.next() ? rs.getString("id_card") : null;
-                }
+            if (hasTicketOverlap(conn, orderId, newScheduleId)) {
+                conn.rollback();
+                return null;
             }
-            if (idCard != null) {
-                try (PreparedStatement ps = conn.prepareStatement(overlapSql)) {
-                    ps.setInt(1, newScheduleId);
-                    ps.setString(2, idCard);
-                    ps.setInt(3, orderId);
-                    try (ResultSet rs = ps.executeQuery()) {
-                        if (rs.next() && rs.getInt(1) > 0) {
-                            conn.rollback();
-                            return null;
-                        }
-                    }
-                }
-            }
-            BigDecimal diff = newPrice.subtract(oldPrice);   // 正数补差价、负数退款
+            BigDecimal diff = newPrice.subtract(current.price);   // 正数补差价、负数退款
 
             // 3. 新座位→已售，旧座位→可售
-            try (PreparedStatement ps = conn.prepareStatement(
-                    "UPDATE seat SET seat_status=N'已售', lock_time=NULL WHERE id=?")) {
-                ps.setInt(1, newSeatId);
-                ps.executeUpdate();
-            }
-            try (PreparedStatement ps = conn.prepareStatement(
-                    "UPDATE seat SET seat_status=N'可售', lock_time=NULL WHERE id=?")) {
-                ps.setInt(1, oldSeatId);
-                ps.executeUpdate();
-            }
+            moveSeat(conn, current.seatId, newSeatId);
             // 4. 班次已售调整
-            try (PreparedStatement ps = conn.prepareStatement(
-                    "UPDATE schedule SET sold_seats=sold_seats-1 WHERE id=?")) {
-                ps.setInt(1, oldScheduleId); ps.executeUpdate();
-            }
-            try (PreparedStatement ps = conn.prepareStatement(
-                    "UPDATE schedule SET sold_seats=sold_seats+1 WHERE id=?")) {
-                ps.setInt(1, newScheduleId); ps.executeUpdate();
-            }
+            adjustSoldSeats(conn, current.scheduleId, newScheduleId);
             // 5. 船票改绑新班次/座位/价格，订单更新班次和总价
-            try (PreparedStatement ps = conn.prepareStatement(
-                    "UPDATE ticket SET schedule_id=?, seat_id=?, price=?, qr_code=? WHERE order_id=?")) {
-                ps.setInt(1, newScheduleId);
-                ps.setInt(2, newSeatId);
-                ps.setBigDecimal(3, newPrice);
-                ps.setString(4, "QR-" + orderId + "-" + newSeatId);
-                ps.setInt(5, orderId);
-                ps.executeUpdate();
-            }
-            try (PreparedStatement ps = conn.prepareStatement(
-                    "UPDATE [order] SET schedule_id=?, total_amount=? WHERE id=?")) {
-                ps.setInt(1, newScheduleId);
-                ps.setBigDecimal(2, newPrice);
-                ps.setInt(3, orderId);
-                ps.executeUpdate();
-            }
+            rebindTicketAndOrder(conn, orderId, newScheduleId, newSeatId, newPrice);
             // 6. 写改签日志（任务书要求）
             try (PreparedStatement ps = conn.prepareStatement(
                     "INSERT INTO change_log(order_id,old_schedule_id,new_schedule_id,old_seat_id,new_seat_id,price_diff,operator_id,reason) "
                   + "VALUES (?,?,?,?,?,?,?,?)")) {
                 ps.setInt(1, orderId);
-                ps.setInt(2, oldScheduleId);
+                ps.setInt(2, current.scheduleId);
                 ps.setInt(3, newScheduleId);
-                ps.setInt(4, oldSeatId);
+                ps.setInt(4, current.seatId);
                 ps.setInt(5, newSeatId);
                 ps.setBigDecimal(6, diff);
                 ps.setInt(7, operatorId);
                 ps.setString(8, reason == null ? "乘客改签" : reason);
                 ps.executeUpdate();
             }
-
             // 7. 差价真实收退：写资金流水（正数=补款 in，负数=退款 out）
-            String orderNo = null;
-            try (PreparedStatement ps = conn.prepareStatement("SELECT order_no FROM [order] WHERE id=?")) {
-                ps.setInt(1, orderId);
-                try (ResultSet rs = ps.executeQuery()) { if (rs.next()) orderNo = rs.getString("order_no"); }
-            }
-            String settle;
-            if (diff.signum() > 0) {
-                try (PreparedStatement ps = conn.prepareStatement(
-                        "INSERT INTO payment_log(order_id,order_no,type,amount,direction,remark) "
-                      + "VALUES (?,?,N'改签补款',?,'in',N'改签至更贵班次补差价')")) {
-                    ps.setInt(1, orderId); ps.setString(2, orderNo);
-                    ps.setBigDecimal(3, diff); ps.executeUpdate();
-                }
-                settle = "，已补差价 ￥" + diff.toPlainString();
-            } else if (diff.signum() < 0) {
-                BigDecimal back = diff.abs();
-                try (PreparedStatement ps = conn.prepareStatement(
-                        "INSERT INTO payment_log(order_id,order_no,type,amount,direction,remark) "
-                      + "VALUES (?,?,N'改签退款',?,'out',N'改签至更便宜班次退差价')")) {
-                    ps.setInt(1, orderId); ps.setString(2, orderNo);
-                    ps.setBigDecimal(3, back); ps.executeUpdate();
-                }
-                settle = "，已退差价 ￥" + back.toPlainString() + "（3个工作日内到账）";
-            } else {
-                settle = "，票价相同无需补退差价";
-            }
+            String settle = settlePriceDiff(conn, orderId, diff);
 
             conn.commit();
             return "改签成功，已记录改签日志" + settle;
@@ -647,6 +535,184 @@ public class OrderDAO {
             if (conn != null) {
                 conn.setAutoCommit(true);
                 DBUtil.close(conn);
+            }
+        }
+    }
+
+    /** 改签用到的原订单数据：原班次、原座位、原票价。 */
+    private static final class ChangeOrder {
+        private final int scheduleId;
+        private final int seatId;
+        private final BigDecimal price;
+
+        private ChangeOrder(int scheduleId, int seatId, BigDecimal price) {
+            this.scheduleId = scheduleId;
+            this.seatId = seatId;
+            this.price = price;
+        }
+    }
+
+    /** 读取原订单与原票；订单不存在或不是“已支付”时返回 null。 */
+    private ChangeOrder findChangeableOrder(Connection conn, int orderId) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement(
+                "SELECT o.schedule_id, t.seat_id, t.price FROM [order] o "
+              + "JOIN ticket t ON t.order_id=o.id WHERE o.id=? AND o.status=N'已支付'")) {
+            ps.setInt(1, orderId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) return null;
+                return new ChangeOrder(rs.getInt("schedule_id"), rs.getInt("seat_id"),
+                        rs.getBigDecimal("price"));
+            }
+        }
+    }
+
+    /** UPDLOCK 锁新座位并确认可售（并发安全）。 */
+    private boolean lockSellableSeat(Connection conn, int newSeatId, int newScheduleId)
+            throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement(
+                "SELECT seat_status FROM seat WITH (UPDLOCK, HOLDLOCK) WHERE id=? AND schedule_id=?")) {
+            ps.setInt(1, newSeatId);
+            ps.setInt(2, newScheduleId);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() && "可售".equals(rs.getString("seat_status"));
+            }
+        }
+    }
+
+    /** 锁新班次并返回票价；不存在、非“售票中”或已发船时返回 null。 */
+    private BigDecimal lockSellableSchedulePrice(Connection conn, int newScheduleId)
+            throws SQLException {
+        String sql = "SELECT status, price, depart_time, arrive_time FROM schedule "
+                   + "WITH (UPDLOCK, HOLDLOCK) WHERE id=? AND is_deleted=0";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, newScheduleId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) return null;
+                String status = rs.getString("status");
+                Timestamp depart = rs.getTimestamp("depart_time");
+                if (!"售票中".equals(status) || depart == null
+                        || !depart.after(new Timestamp(System.currentTimeMillis()))) {
+                    return null;
+                }
+                return rs.getBigDecimal("price");
+            }
+        }
+    }
+
+    /** 同一证件在目标班次时段是否已有其它有效票（排除本订单自己的票）。 */
+    private boolean hasTicketOverlap(Connection conn, int orderId, int newScheduleId)
+            throws SQLException {
+        String idCard = findTicketIdCard(conn, orderId);
+        if (idCard == null) return false;
+        String sql = "SELECT COUNT(*) FROM ticket t WITH (UPDLOCK, HOLDLOCK) "
+                   + "JOIN schedule s ON s.id=t.schedule_id "
+                   + "JOIN schedule ns ON ns.id=? "
+                   + "WHERE t.id_card=? AND t.order_id<>? "
+                   + "AND t.status IN (N'待支付',N'已支付',N'已检票') "
+                   + "AND s.depart_time < ns.arrive_time AND s.arrive_time > ns.depart_time";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, newScheduleId);
+            ps.setString(2, idCard);
+            ps.setInt(3, orderId);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() && rs.getInt(1) > 0;
+            }
+        }
+    }
+
+    private String findTicketIdCard(Connection conn, int orderId) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement("SELECT id_card FROM ticket WHERE order_id=?")) {
+            ps.setInt(1, orderId);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getString("id_card") : null;
+            }
+        }
+    }
+
+    /** 新座位置为已售，旧座位释放回可售。 */
+    private void moveSeat(Connection conn, int oldSeatId, int newSeatId) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement(
+                "UPDATE seat SET seat_status=N'已售', lock_time=NULL WHERE id=?")) {
+            ps.setInt(1, newSeatId);
+            ps.executeUpdate();
+        }
+        try (PreparedStatement ps = conn.prepareStatement(
+                "UPDATE seat SET seat_status=N'可售', lock_time=NULL WHERE id=?")) {
+            ps.setInt(1, oldSeatId);
+            ps.executeUpdate();
+        }
+    }
+
+    /** 旧班次已售 -1，新班次已售 +1。 */
+    private void adjustSoldSeats(Connection conn, int oldScheduleId, int newScheduleId)
+            throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement(
+                "UPDATE schedule SET sold_seats=sold_seats-1 WHERE id=?")) {
+            ps.setInt(1, oldScheduleId);
+            ps.executeUpdate();
+        }
+        try (PreparedStatement ps = conn.prepareStatement(
+                "UPDATE schedule SET sold_seats=sold_seats+1 WHERE id=?")) {
+            ps.setInt(1, newScheduleId);
+            ps.executeUpdate();
+        }
+    }
+
+    /** 船票改绑新班次/座位/价格，订单同步班次和总价。 */
+    private void rebindTicketAndOrder(Connection conn, int orderId, int newScheduleId,
+            int newSeatId, BigDecimal newPrice) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement(
+                "UPDATE ticket SET schedule_id=?, seat_id=?, price=?, qr_code=? WHERE order_id=?")) {
+            ps.setInt(1, newScheduleId);
+            ps.setInt(2, newSeatId);
+            ps.setBigDecimal(3, newPrice);
+            ps.setString(4, "QR-" + orderId + "-" + newSeatId);
+            ps.setInt(5, orderId);
+            ps.executeUpdate();
+        }
+        try (PreparedStatement ps = conn.prepareStatement(
+                "UPDATE [order] SET schedule_id=?, total_amount=? WHERE id=?")) {
+            ps.setInt(1, newScheduleId);
+            ps.setBigDecimal(2, newPrice);
+            ps.setInt(3, orderId);
+            ps.executeUpdate();
+        }
+    }
+
+    /** 差价真实收退：写资金流水，返回页面提示片段。 */
+    private String settlePriceDiff(Connection conn, int orderId, BigDecimal diff) throws SQLException {
+        String orderNo = findOrderNo(conn, orderId);
+        if (diff.signum() > 0) {
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "INSERT INTO payment_log(order_id,order_no,type,amount,direction,remark) "
+                  + "VALUES (?,?,N'改签补款',?,'in',N'改签至更贵班次补差价')")) {
+                ps.setInt(1, orderId);
+                ps.setString(2, orderNo);
+                ps.setBigDecimal(3, diff);
+                ps.executeUpdate();
+            }
+            return "，已补差价 ￥" + diff.toPlainString();
+        }
+        if (diff.signum() < 0) {
+            BigDecimal back = diff.abs();
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "INSERT INTO payment_log(order_id,order_no,type,amount,direction,remark) "
+                  + "VALUES (?,?,N'改签退款',?,'out',N'改签至更便宜班次退差价')")) {
+                ps.setInt(1, orderId);
+                ps.setString(2, orderNo);
+                ps.setBigDecimal(3, back);
+                ps.executeUpdate();
+            }
+            return "，已退差价 ￥" + back.toPlainString() + "（3个工作日内到账）";
+        }
+        return "，票价相同无需补退差价";
+    }
+
+    private String findOrderNo(Connection conn, int orderId) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement("SELECT order_no FROM [order] WHERE id=?")) {
+            ps.setInt(1, orderId);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getString("order_no") : null;
             }
         }
     }
