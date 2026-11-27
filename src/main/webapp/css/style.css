@@ -1,40 +1,412 @@
-/* 三端差异化界面基础样式（阶段2为占位版，后续阶段继续完善） */
+/* 轮渡码头客运管理系统 —— 白底 + 品牌蓝 + 扁平卡片 + 胶囊按钮 */
+:root {
+    --bg: #ffffff;
+    --surface: #f7f6f6;
+    --text: #201f20;
+    --text-2: #494949;
+    --muted: #606060;
+    --line: #e0e0df;
+    --accent: #2e5bff;
+    --accent-press: #2449d8;
+    --accent-ink: #fcfcfd;
+    --accent-soft: #eef1ff;
+    --ok-bg: #eaf5ec;
+    --ok-ink: #1b5e2a;
+    --err-bg: #fdecec;
+    --err-ink: #9b1c1c;
+    --r: 8px;
+    --r-pill: 9999px;
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+            "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+}
+
 * { box-sizing: border-box; }
-body { margin: 0; font-family: "Microsoft YaHei", sans-serif; background: #f5f7fa; color: #1f2937; }
-a { color: #2563eb; text-decoration: none; }
-.muted { color: #6b7280; font-size: 14px; }
 
-/* 登录 / 注册 */
-.login-page { display: flex; justify-content: center; align-items: center; min-height: 100vh;
-              background: linear-gradient(135deg, #dbeafe, #e0f2fe); }
-.login-card { width: 380px; padding: 32px; background: #fff; border-radius: 14px;
-              box-shadow: 0 8px 30px rgba(0,0,0,.08); }
-.login-card h1 { font-size: 22px; margin: 0 0 4px; text-align: center; }
-.subtitle { text-align: center; color: #6b7280; margin: 0 0 20px; }
-.login-card label { display: block; margin: 12px 0; font-size: 14px; }
-.login-card input { width: 100%; padding: 10px 12px; margin-top: 5px;
-                    border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; }
-.btn-primary { background: #2563eb; color: #fff; border: 0; border-radius: 8px;
-               padding: 10px 18px; cursor: pointer; font-size: 15px; }
-.btn-block { width: 100%; margin-top: 12px; }
-.footer-link { text-align: center; font-size: 14px; }
-.hint { margin-top: 18px; padding: 10px; background: #f3f4f6; border-radius: 8px;
-        font-size: 12px; color: #4b5563; line-height: 1.8; }
-.msg { padding: 8px 12px; border-radius: 6px; font-size: 14px; }
-.msg.err { background: #fee2e2; color: #b91c1c; }
-.msg.ok { background: #dcfce7; color: #15803d; }
+body {
+    margin: 0;
+    font-family: var(--font);
+    font-size: 16px;
+    line-height: 1.6;
+    color: var(--text);
+    background: var(--bg);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
 
-/* 乘客端：移动优先、大卡片、底部Tab */
-.phone { max-width: 420px; margin: 0 auto; min-height: 100vh; background: #fff; }
-.phone-head { padding: 16px; background: #eff6ff; font-size: 15px; }
-.phone-body { padding: 16px; }
-.card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; margin: 12px 0; }
-.big-btn { background: #2563eb; color: #fff; text-align: center; font-size: 17px; font-weight: bold; }
-.tabbar { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 420px;
-          display: flex; justify-content: space-around; background: #fff; border-top: 1px solid #e5e7eb; padding: 12px 0; }
-.tabbar .active { color: #2563eb; font-weight: bold; }
+a { color: var(--accent); text-decoration: none; }
+h1, h2, h3, h4 { margin: 0; font-weight: 600; line-height: 1.25; letter-spacing: -.02em; }
 
-/* 售票员端：左侧菜单 + 大操作区，高密度 */
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.muted { color: var(--muted); font-size: 14px; line-height: 1.6; }
+
+.msg {
+    display: block;
+    margin: 0 0 16px;
+    padding: 12px 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    line-height: 1.5;
+}
+.msg.err { background: var(--err-bg); color: var(--err-ink); }
+.msg.ok { background: var(--accent-soft); color: #1c348f; }
+
+/* 通用主按钮：胶囊 */
+.btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 24px;
+    border: 0;
+    border-radius: var(--r-pill);
+    background: var(--accent);
+    color: var(--accent-ink);
+    font: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: .01em;
+    cursor: pointer;
+    transition: background-color .18s ease, transform .18s ease;
+}
+.btn-primary:hover { background: var(--accent-press); }
+.btn-primary:active { transform: translateY(1px); }
+
+/* ===== 登录 / 注册 ===== */
+.login-page {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 24px;
+    background: var(--bg);
+}
+.login-card {
+    width: 100%;
+    max-width: 400px;
+    padding: 36px 28px;
+    background: var(--surface);
+    border-radius: var(--r);
+}
+.login-card h1 {
+    margin: 0 0 6px;
+    font-size: 26px;
+    letter-spacing: -.03em;
+    text-align: center;
+}
+.subtitle { margin: 0 0 28px; text-align: center; color: var(--muted); font-size: 14px; }
+.login-card label { display: block; margin: 16px 0; font-size: 13px; font-weight: 500; color: var(--text-2); }
+.login-card input {
+    width: 100%;
+    margin-top: 6px;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: #fff;
+    color: var(--text);
+    font: inherit;
+    font-size: 15px;
+}
+.login-card input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(46, 91, 255, .16);
+}
+.btn-block { width: 100%; margin-top: 20px; }
+.footer-link { margin: 18px 0 0; text-align: center; font-size: 14px; color: var(--muted); }
+.footer-link a { font-weight: 500; }
+.hint {
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+    font-size: 12px;
+    line-height: 1.8;
+    color: var(--muted);
+}
+.hint b { color: var(--text-2); }
+
+/* ===== 乘客端（手机） ===== */
+body.mobile { background: var(--surface); }
+
+.phone {
+    position: relative;
+    max-width: 440px;
+    min-height: 100vh;
+    margin: 0 auto;
+    padding-bottom: calc(88px + env(safe-area-inset-bottom));
+    background: var(--bg);
+}
+
+.phone-head {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    padding: 18px 24px 14px;
+    border-bottom: 1px solid var(--line);
+    background: rgba(255, 255, 255, .92);
+    -webkit-backdrop-filter: saturate(180%) blur(14px);
+    backdrop-filter: saturate(180%) blur(14px);
+    color: var(--text-2);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: .01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.phone-body { padding: 32px 24px 24px; }
+.phone-body h2 {
+    margin: 0 0 10px;
+    font-size: clamp(30px, 8.4vw, 36px);
+    line-height: 1.08;
+    letter-spacing: -.035em;
+}
+.phone-body > .muted { margin: 0 0 28px; font-size: 15px; color: var(--text-2); }
+.phone-body h3 { margin: 32px 0 12px; font-size: 18px; letter-spacing: -.01em; }
+.phone-body > a { display: block; }
+
+.card {
+    margin: 0 0 12px;
+    padding: 20px;
+    border: 0;
+    border-radius: var(--r);
+    background: var(--surface);
+}
+.mobile .card.muted { color: var(--muted); font-size: 14px; text-align: center; padding: 24px 20px; }
+
+/* 主/次操作按钮 */
+.mobile .big-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 56px;
+    margin: 0 0 12px;
+    padding: 16px 22px;
+    border: 0;
+    border-radius: var(--r-pill);
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: .01em;
+    text-align: center;
+    cursor: pointer;
+    transition: background-color .18s ease, transform .18s ease;
+}
+.mobile .big-btn:hover { background: var(--accent-press); }
+.mobile .big-btn:active { transform: translateY(1px); }
+.mobile .big-btn.ghost { background: #fff; color: var(--text); box-shadow: inset 0 0 0 1px var(--line); }
+.mobile .big-btn.ghost:hover { background: var(--surface); }
+.mobile .card .big-btn { margin: 16px 0 0; }
+
+/* 班次卡片 */
+.mobile .route-name { font-size: 19px; font-weight: 600; line-height: 1.3; letter-spacing: -.015em; }
+.mobile .facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 20px;
+    margin: 14px 0 6px;
+    color: var(--text-2);
+    font-size: 14px;
+}
+.mobile .facts b { color: var(--text); font-weight: 600; }
+.mobile .price { color: var(--accent); font-variant-numeric: tabular-nums; }
+.mobile .remain { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+
+/* 订单卡片 */
+.mobile .order {
+    margin: 0 0 12px;
+    padding: 18px 20px;
+    border-radius: var(--r);
+    background: var(--surface);
+}
+.mobile .order .no {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    color: var(--muted);
+    font-size: 12px;
+    letter-spacing: .01em;
+    font-variant-numeric: tabular-nums;
+}
+.mobile .st {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: var(--r-pill);
+    background: var(--accent-soft);
+    color: #1c348f;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .01em;
+}
+.mobile .st.paid { background: var(--ok-bg); color: var(--ok-ink); }
+.mobile .st.cancel { background: #efeeed; color: var(--muted); }
+.mobile .order-title { margin: 10px 0 2px; font-size: 16px; font-weight: 600; }
+.mobile .amount { margin: 8px 0 0; color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+.mobile .amount .refund { color: var(--ok-ink); }
+.mobile .eta { color: var(--text-2); }
+
+/* 订单里的说明块（改签记录 / 资金流水） */
+.mobile .note {
+    margin: 12px 0;
+    padding: 12px 14px;
+    border-left: 2px solid var(--accent);
+    border-radius: 4px;
+    background: #fff;
+    color: var(--text-2);
+    font-size: 12px;
+    line-height: 1.7;
+}
+.mobile .note b { color: var(--text); }
+.mobile .note.warn { border-left-color: #b7791f; background: #fffaf0; }
+
+/* 订单操作 */
+.mobile .ops { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+.mobile .ops form { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.mobile .op-pay,
+.mobile .op-refund {
+    padding: 10px 18px;
+    border: 0;
+    border-radius: var(--r-pill);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.mobile .ops form button,
+.mobile .order > form button { flex: 0 0 auto; }
+.mobile .op-pay { background: var(--accent); color: var(--accent-ink); }
+.mobile .op-pay:hover { background: var(--accent-press); }
+.mobile .op-refund { background: #fff; color: var(--text); box-shadow: inset 0 0 0 1px var(--line); }
+.mobile .op-refund:hover { background: var(--bg); }
+.mobile .order > form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 16px;
+}
+.mobile .order > form select,
+.mobile .order > form input[type="text"],
+.mobile .ops form input[type="text"] {
+    flex: 1 1 140px;
+    width: auto;
+    min-width: 0;
+    font-size: 14px;
+}
+.mobile .hint-small { flex-basis: 100%; margin: 0; color: var(--muted); font-size: 12px; }
+
+/* 选座 */
+.mobile .seat-grid { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 24px; }
+.mobile .seat {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 44px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--text-2);
+    font-size: 13px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+}
+.mobile .seat:hover { border-color: var(--accent); color: var(--accent); }
+.mobile .seat.sel { border-color: var(--accent); background: var(--accent); color: var(--accent-ink); }
+
+/* 表单 */
+.mobile .form-line { margin: 0 0 16px; }
+.mobile .form-line label {
+    display: block;
+    margin: 0 0 6px;
+    color: var(--text-2);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: .01em;
+}
+.mobile input,
+.mobile select,
+.mobile textarea {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: #fff;
+    color: var(--text);
+    font: inherit;
+    font-size: 15px;
+    transition: border-color .16s ease, box-shadow .16s ease;
+}
+.mobile input:focus,
+.mobile select:focus,
+.mobile textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(46, 91, 255, .16);
+}
+.mobile input[readonly] { background: var(--surface); color: var(--text-2); }
+.mobile select {
+    padding-right: 38px;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5' fill='none' stroke='%23606060' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    background-size: 12px 8px;
+}
+.mobile .btn {
+    padding: 13px 24px;
+    border: 0;
+    border-radius: var(--r-pill);
+    background: var(--accent);
+    color: var(--accent-ink);
+    font: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.mobile .btn:hover { background: var(--accent-press); }
+.mobile .card form .btn { margin-top: 4px; }
+
+/* 底部导航 */
+.tabbar {
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    z-index: 30;
+    display: flex;
+    width: 100%;
+    max-width: 440px;
+    padding: 10px 8px calc(10px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--line);
+    background: rgba(255, 255, 255, .94);
+    -webkit-backdrop-filter: saturate(180%) blur(14px);
+    backdrop-filter: saturate(180%) blur(14px);
+    transform: translateX(-50%);
+}
+.tabbar a {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 0;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: .01em;
+}
+.tabbar a:hover { color: var(--text); }
+.tabbar .active { color: var(--accent); font-weight: 600; }
+
+/* ===== 售票员端：左侧菜单 + 大操作区，高密度 ===== */
 .desk-head { background: #1e3a8a; color: #fff; padding: 12px 20px; }
 .logout { float: right; color: #fff; }
 .desk-layout { display: flex; min-height: calc(100vh - 45px); }
@@ -45,7 +417,7 @@ a { color: #2563eb; text-decoration: none; }
 .big-input { width: 100%; max-width: 480px; padding: 12px; font-size: 18px;
              border: 2px solid #93c5fd; border-radius: 8px; margin: 10px 0; }
 
-/* 管理后台：完整菜单 + 数据表格 + 指标卡 */
+/* ===== 管理后台：完整菜单 + 数据表格 + 指标卡 ===== */
 .admin-head { background: #0f172a; color: #fff; padding: 14px 24px; font-size: 17px; }
 .admin-layout { display: flex; min-height: calc(100vh - 50px); }
 .admin-menu { width: 200px; background: #f1f5f9; border-right: 1px solid #e2e8f0; padding: 10px 0; }
@@ -55,8 +427,8 @@ a { color: #2563eb; text-decoration: none; }
 .kpi-row { display: flex; gap: 16px; flex-wrap: wrap; }
 .kpi { flex: 1; min-width: 150px; background: #fff; border: 1px solid #e5e7eb;
        border-radius: 10px; padding: 18px; text-align: center; }
-.kpi b { display: block; font-size: 26px; color: #2563eb; }
-.kpi span { color: #6b7280; font-size: 13px; }
+.kpi b { display: block; font-size: 26px; color: var(--accent); }
+.kpi span { color: var(--muted); font-size: 13px; }
 .data-table { width: 100%; border-collapse: collapse; background: #fff; margin-top: 16px; }
 .data-table th, .data-table td { border: 1px solid #e5e7eb; padding: 10px; text-align: left; }
 .data-table th { background: #f8fafc; }

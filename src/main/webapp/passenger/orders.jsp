@@ -24,17 +24,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>我的订单 - 轮渡码头</title>
     <link rel="stylesheet" href="${pageContext.request.contextPath}/css/style.css">
-    <style>
-        .order { border:1px solid #e5e7eb; border-radius:12px; padding:14px; margin:12px 0; background:#fff; }
-        .order .no { font-size:12px; color:#6b7280; }
-        .order .st { float:right; font-size:13px; padding:2px 8px; border-radius:10px; background:#dbeafe; color:#1d4ed8; }
-        .order .st.paid { background:#dcfce7; color:#15803d; }
-        .order .st.cancel { background:#f3f4f6; color:#6b7280; }
-        .ops button { padding:8px 12px; border:0; border-radius:8px; cursor:pointer; font-size:13px; margin-right:6px; }
-        .op-pay { background:#2563eb; color:#fff; }
-        .op-refund { background:#f97316; color:#fff; }
-        select,input { padding:6px; border:1px solid #d1d5db; border-radius:6px; font-size:13px; }
-    </style>
 </head>
 <body class="mobile">
 <div class="phone">
@@ -52,21 +41,21 @@
             <div class="no">订单号 <%= o.getOrderNo() %> <span class="st <%= cls %>"><%= st %></span></div>
             <% java.util.List<String> infos = changeInfos.get(o.getId());
                if (infos != null && !infos.isEmpty()) { %>
-            <div style="margin:6px 0;padding:6px 10px;background:#fef3c7;border-left:3px solid #f59e0b;border-radius:4px;font-size:12px;color:#92400e">
+            <div class="note warn">
                 <b>🔄 已改签 <%= infos.size() %> 次</b>
                 <% for (String info : infos) { %><div style="margin-top:3px"><%= info %></div><% } %>
             </div>
             <% } %>
-            <div style="margin:8px 0"><b><%= o.getRouteName() %></b>　<%= o.getShipName() %></div>
+            <div class="order-title"><%= o.getRouteName() %>　<%= o.getShipName() %></div>
             <div class="muted">发船 <%= fmt.format(o.getDepartTime()) %>　座位 <%= o.getSeatNo()==null?"-":o.getSeatNo() %></div>
-            <div style="margin:6px 0">金额 <b style="color:#dc2626">￥<%= o.getTotalAmount() %></b>
-                <% if (o.getRefundAmount() != null) { %>　实退 <b style="color:#16a34a">￥<%= o.getRefundAmount() %></b><% } %>
+            <div class="amount">金额 ￥<%= o.getTotalAmount() %>
+                <% if (o.getRefundAmount() != null) { %>　<span class="refund">实退 ￥<%= o.getRefundAmount() %></span><% } %>
             </div>
             <% if (o.getRefundReason() != null) { %><div class="muted">退款原因：<%= o.getRefundReason() %></div><% } %>
-            <% if (o.getRefundEta() != null) { %><div class="muted">预计到账：<b style="color:#0891b2"><%= new java.text.SimpleDateFormat("yyyy-MM-dd").format(o.getRefundEta()) %> 前</b>（3个工作日，以银行实际到账为准）</div><% } %>
+            <% if (o.getRefundEta() != null) { %><div class="muted eta">预计到账：<b><%= new java.text.SimpleDateFormat("yyyy-MM-dd").format(o.getRefundEta()) %> 前</b>（3个工作日，以银行实际到账为准）</div><% } %>
             <% java.util.List<String> logs = paymentLogs.get(o.getId());
                if (logs != null && !logs.isEmpty()) { %>
-            <div style="margin:6px 0;padding:6px 10px;background:#f0f9ff;border-left:3px solid #0ea5e9;border-radius:4px;font-size:12px;color:#0c4a6e">
+            <div class="note">
                 <b>💰 资金流水</b>
                 <% for (String log : logs) { %><div style="margin-top:3px"><%= log %></div><% } %>
             </div>
@@ -74,13 +63,13 @@
 
             <div class="ops">
             <% if ("待支付".equals(st)) { %>
-                <form method="post" action="${pageContext.request.contextPath}/book" style="display:inline">
+                <form method="post" action="${pageContext.request.contextPath}/book">
                     <input type="hidden" name="action" value="pay"><input type="hidden" name="orderId" value="<%= o.getId() %>">
                     <button class="op-pay">立即支付（5分钟内）</button>
                 </form>
             <% } %>
             <% if ("已支付".equals(st) || "已检票".equals(st)) { %>
-                <form method="post" action="${pageContext.request.contextPath}/book" style="display:inline" onsubmit="return confirm('确定退票？将按规则扣手续费')">
+                <form method="post" action="${pageContext.request.contextPath}/book" onsubmit="return confirm('确定退票？将按规则扣手续费')">
                     <input type="hidden" name="action" value="refund"><input type="hidden" name="orderId" value="<%= o.getId() %>">
                     <input type="text" name="reason" placeholder="退票原因" size="8">
                     <button class="op-refund">退票</button>
@@ -89,7 +78,7 @@
             </div>
 
             <% if ("已支付".equals(st)) { %>
-            <form method="post" action="${pageContext.request.contextPath}/book" style="margin-top:8px"
+            <form method="post" action="${pageContext.request.contextPath}/book" class="change-form"
                   onsubmit="return confirm('确定改签？')">
                 <input type="hidden" name="action" value="change"><input type="hidden" name="orderId" value="<%= o.getId() %>">
                 <select name="changeTarget">
@@ -100,7 +89,7 @@
                 </select>
                 <input type="text" name="reason" placeholder="改签原因(选填)" size="10">
                 <button class="op-pay">改签</button>
-                <div class="muted" style="font-size:11px;margin-top:3px">↑选择新班次和座位，差价自动计算</div>
+                <div class="hint-small">↑选择新班次和座位，差价自动计算</div>
             </form>
             <% } %>
         </div>

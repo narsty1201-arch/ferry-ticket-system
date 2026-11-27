@@ -15,12 +15,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>我的 - 轮渡码头</title>
     <link rel="stylesheet" href="${pageContext.request.contextPath}/css/style.css">
-    <style>
-        .form-line { margin:10px 0; font-size:14px; }
-        .form-line label { display:block; color:#374151; margin-bottom:4px; }
-        .form-line input { width:100%; padding:10px; border:1px solid #d1d5db; border-radius:8px; font-size:15px; box-sizing:border-box; }
-        .btn { border:0; border-radius:8px; padding:10px 16px; color:#fff; background:#2563eb; cursor:pointer; font-size:15px; }
-    </style>
 </head>
 <body class="mobile">
 <div class="phone">
@@ -56,7 +50,7 @@
                 <button type="submit" class="btn">修改密码</button>
             </form>
         </div>
-        <div class="card big-btn" onclick="location.href='<%= ctx %>/logout'" style="text-align:center">退出登录</div>
+        <div class="big-btn ghost" onclick="location.href='<%= ctx %>/logout'">退出登录</div>
     </div>
     <div class="tabbar">
         <a href="<%= ctx %>/passenger/home.jsp"><span>🏠 首页</span></a>

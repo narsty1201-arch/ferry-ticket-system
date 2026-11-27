@@ -16,14 +16,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>选座购票 - 轮渡码头</title>
     <link rel="stylesheet" href="${pageContext.request.contextPath}/css/style.css">
-    <style>
-        .seat { display:inline-block; width:46px; height:40px; line-height:40px; text-align:center;
-                border:1px solid #93c5fd; border-radius:6px; margin:4px; cursor:pointer; background:#eff6ff; }
-        .seat.sel { background:#2563eb; color:#fff; }
-        .form-line { margin:10px 0; font-size:14px; }
-        .form-line label { display:block; color:#374151; margin-bottom:4px; }
-        .form-line input { width:100%; padding:10px; border:1px solid #d1d5db; border-radius:8px; font-size:15px; }
-    </style>
 </head>
 <body class="mobile">
 <div class="phone">
@@ -38,7 +30,7 @@
         <p class="msg err"><%= msg %></p><% } %>
 
         <h3>选择座位（蓝色可售）</h3>
-        <div>
+        <div class="seat-grid">
             <% for (String seat : seats) { %>
             <span class="seat" onclick="pick(this,'<%= seat %>')"><%= seat %></span>
             <% } %>
@@ -50,13 +42,11 @@
             <input type="hidden" name="scheduleId" value="<%= s.getId() %>">
             <input type="hidden" name="seatNo" id="seatNo" value="">
 
-            <div class="form-line"><label>乘客姓名（本人档案）</label><input value="${sessionScope.userName}" readonly style="background:#f3f4f6"></div>
-            <div class="form-line"><label>身份证号（本人档案）</label><input value="${sessionScope.userCard}" readonly style="background:#f3f4f6"></div>
-            <div class="form-line"><label>手机号（本人档案）</label><input value="${sessionScope.userPhone}" readonly style="background:#f3f4f6"></div>
+            <div class="form-line"><label>乘客姓名（本人档案）</label><input value="${sessionScope.userName}" readonly></div>
+            <div class="form-line"><label>身份证号（本人档案）</label><input value="${sessionScope.userCard}" readonly></div>
+            <div class="form-line"><label>手机号（本人档案）</label><input value="${sessionScope.userPhone}" readonly></div>
             <p class="muted">实名购票：船票身份信息取自您的个人档案，不可填写他人信息。如需修改请到"我的 → 个人中心"。<br>提交后座位锁定 <b>5 分钟</b>，请在时限内到"我的订单"支付，超时自动释放。</p>
-            <div class="card big-btn" style="margin-top:14px">
-                <button type="submit" style="border:0;background:#2563eb;color:#fff;font-size:17px;font-weight:bold;width:100%;padding:14px;border-radius:8px;cursor:pointer">🎫 确认锁座下单</button>
-            </div>
+            <button type="submit" class="btn btn-block">🎫 确认锁座下单</button>
         </form>
     </div>
     <div class="tabbar">

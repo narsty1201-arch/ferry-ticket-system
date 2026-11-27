@@ -28,20 +28,23 @@
         <h2>你好，${sessionScope.userName}</h2>
         <% if (msg != null && !msg.isEmpty()) { %><p class="msg err"><%= msg %></p><% } %>
         <% if (list.isEmpty()) { %>
-        <div class="card muted" style="text-align:center">暂无可购票班次，请稍后再来</div>
+        <div class="card muted">暂无可购票班次，请稍后再来</div>
         <% } %>
         <% for (Schedule s : list) { %>
         <div class="card">
-            <div style="font-size:17px;font-weight:bold"><%= s.getRouteName() %></div>
+            <div class="route-name"><%= s.getRouteName() %></div>
             <div class="muted"><%= s.getStartPort() %> → <%= s.getEndPort() %>　<%= s.getShipName() %></div>
-            <div style="margin:8px 0">发船 <b><%= fmt.format(s.getDepartTime()) %></b>　票价 <b style="color:#dc2626">￥<%= s.getPrice() %></b></div>
-            <div class="muted">剩余座位 <%= s.getRemainSeats() %>/<%= s.getTotalSeats() %></div>
+            <div class="facts">
+                <span>发船 <b><%= fmt.format(s.getDepartTime()) %></b></span>
+                <span>票价 <b class="price">￥<%= s.getPrice() %></b></span>
+            </div>
+            <div class="remain">剩余座位 <%= s.getRemainSeats() %>/<%= s.getTotalSeats() %></div>
             <a href="${pageContext.request.contextPath}/book?action=seats&scheduleId=<%= s.getId() %>">
-                <div class="card big-btn" style="margin-bottom:0">选座购票</div>
+                <div class="big-btn">选座购票</div>
             </a>
         </div>
         <% } %>
-        <div class="card big-btn" onclick="location.href='home.jsp'" style="text-align:center">返回首页</div>
+        <div class="big-btn ghost" onclick="location.href='home.jsp'">返回首页</div>
     </div>
     <div class="tabbar">
         <a href="${pageContext.request.contextPath}/passenger/home.jsp"><span>🏠 首页</span></a>

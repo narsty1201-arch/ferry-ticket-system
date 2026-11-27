@@ -12,12 +12,12 @@
 </head>
 <body class="mobile">
 <div class="phone">
-    <div class="phone-head">🔍 出发港口 → 到达港口 · 日期</div>
+    <div class="phone-head">⛴ 轮渡码头 · 乘客端</div>
     <div class="phone-body">
         <h2>你好，${sessionScope.userName}</h2>
         <p class="muted">查询班次、选座购票、支付与退票改签。</p>
-        <a href="schedules.jsp"><div class="card big-btn" style="text-align:center">🎫 查询班次 · 购票</div></a>
-        <a href="orders"><div class="card big-btn" style="text-align:center">📋 我的订单</div></a>
+        <a href="schedules.jsp"><div class="big-btn">🎫 查询班次 · 购票</div></a>
+        <a href="orders"><div class="big-btn ghost">📋 我的订单</div></a>
     </div>
     <div class="tabbar">
         <a href="${pageContext.request.contextPath}/passenger/home.jsp"><span class="active">🏠 首页</span></a>
