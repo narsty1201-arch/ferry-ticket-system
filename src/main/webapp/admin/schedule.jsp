@@ -87,14 +87,17 @@
                         <% if ("已发船".equals(s.getStatus()) || "待发布".equals(s.getStatus())) { %>
                             <a href="schedule?action=status&id=<%= s.getId() %>&to=<%= java.net.URLEncoder.encode("售票中","UTF-8") %>" onclick="return confirm('恢复售票后乘客可重新购买（发船时间已过会被拒绝），确定？')"><button class="btn-sm btn-add">恢复售票</button></a>
                         <% } %>
+                        <% if ("待发布".equals(s.getStatus()) || "售票中".equals(s.getStatus())) { %>
                         <a href="schedule?action=cancel&id=<%= s.getId() %>" onclick="return confirm('取消班次将自动全额退票，确定？')"><button class="btn-sm btn-del">取消班次</button></a>
+                        <% } %>
                         </div>
                     </td>
                 </tr>
             <% } %>
         </table>
         <p class="muted">说明：创建班次时一个事务里自动初始化该船全部座位，到达时间按航线时长自动算。取消班次用事务完成退票+座位回滚+逻辑删除。同一艘船同一发船时间不允许重复班次。<br>
-        状态流转：待发布 → 售票中 → 已发船 → 已完成。系统每 60 秒自动按发船/到达时间流转；这里也可手动强制切换（演示用）。恢复售票会在发船时间已过时被拒绝。置为完成会把已检票订单同步改为“已完成”。</p>
+        状态流转：待发布 → 售票中 → 已发船 → 已完成。系统每 60 秒自动按发船/到达时间流转；这里也可手动强制切换（演示用）。恢复售票会在发船时间已过时被拒绝。置为完成会把已检票订单同步改为“已完成”。<br>
+        取消班次只允许在发船前操作；取消后已支付/已检票订单全额退款，待支付订单取消。</p>
     </main>
 </div>
 </body>

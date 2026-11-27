@@ -145,8 +145,9 @@ public class BookServlet extends HttpServlet {
                     resp.sendRedirect(req.getContextPath() + ordersPath(loginUser) + "?msg=" + enc(deny));
                     return;
                 }
-                orderDAO.pay(orderId);
-                resp.sendRedirect(req.getContextPath() + ordersPath(loginUser) + "?msg=" + enc("支付成功，出票完成"));
+                String payError = orderDAO.pay(orderId);
+                String payMsg = payError == null ? "支付成功，出票完成" : "支付失败：" + payError;
+                resp.sendRedirect(req.getContextPath() + ordersPath(loginUser) + "?msg=" + enc(payMsg));
                 return;
             }
 

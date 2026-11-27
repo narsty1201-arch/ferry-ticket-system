@@ -1,0 +1,6 @@
+# 复制本文件为 db.properties，再填写本机数据库连接信息。
+# db.properties 已被 .gitignore 排除，不要提交真实密码。
+db.driver=com.microsoft.sqlserver.jdbc.SQLServerDriver
+db.url=jdbc:sqlserver://localhost:1433;DatabaseName=FerryDB;encrypt=true;trustServerCertificate=true;
+db.user=sa
+db.password=请填写本机数据库密码

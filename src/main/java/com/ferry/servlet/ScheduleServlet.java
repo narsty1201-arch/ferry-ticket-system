@@ -38,8 +38,11 @@ public class ScheduleServlet extends HttpServlet {
         try {
             if ("cancel".equals(action)) {
                 int id = parseInt(req.getParameter("id"));
-                dao.cancelSchedule(id);   // 事务：退票 + 座位回滚 + 逻辑删除
-                resp.sendRedirect(req.getContextPath() + "/admin/schedule?msg=" + enc("班次已取消，相关订单已自动全额退票"));
+                String err = dao.cancelSchedule(id);
+                String msg = err == null
+                        ? "班次已取消，相关订单已自动全额退票"
+                        : "取消失败：" + err;
+                resp.sendRedirect(req.getContextPath() + "/admin/schedule?msg=" + enc(msg));
                 return;
             }
             if ("status".equals(action)) {
@@ -69,14 +72,31 @@ public class ScheduleServlet extends HttpServlet {
         if (idStr != null && !idStr.trim().isEmpty()) s.setId(parseInt(idStr));
         s.setRouteId(parseInt(req.getParameter("routeId")));
         s.setShipId(parseInt(req.getParameter("shipId")));
+        if (s.getRouteId() <= 0 || s.getShipId() <= 0) {
+            resp.sendRedirect(req.getContextPath() + "/admin/schedule?msg=" + enc("请选择航线和船舶"));
+            return;
+        }
         try {
             s.setDepartTime(parseTime(req.getParameter("departTime")));
         } catch (Exception e) {
             resp.sendRedirect(req.getContextPath() + "/admin/schedule?msg=" + enc("发船时间格式应为 yyyy-MM-dd HH:mm"));
             return;
         }
-        s.setPrice(new BigDecimal(req.getParameter("price")));
+        try {
+            s.setPrice(new BigDecimal(req.getParameter("price")));
+        } catch (Exception e) {
+            resp.sendRedirect(req.getContextPath() + "/admin/schedule?msg=" + enc("票价格式不正确"));
+            return;
+        }
+        if (s.getPrice() == null || s.getPrice().signum() <= 0) {
+            resp.sendRedirect(req.getContextPath() + "/admin/schedule?msg=" + enc("票价必须大于 0"));
+            return;
+        }
         s.setTotalSeats(parseInt(req.getParameter("totalSeats")));
+        if (s.getTotalSeats() <= 0) {
+            resp.sendRedirect(req.getContextPath() + "/admin/schedule?msg=" + enc("座位数必须大于 0"));
+            return;
+        }
         if ("edit".equals(action)) s.setStatus(req.getParameter("status"));
 
         // 时间冲突校验：同一艘船同一发船时间不能有两个未删除班次

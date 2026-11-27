@@ -6,7 +6,9 @@ import com.ferry.util.DBUtil;
 import java.math.BigDecimal;
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * 班次 DAO —— 阶段3核心：
@@ -95,15 +97,31 @@ public class ScheduleDAO {
             conn = DBUtil.getConnection();
             conn.setAutoCommit(false);
 
-            // 1. 取航线航行时长，算得到达时间
+            if (s.getDepartTime() == null || s.getPrice() == null
+                    || s.getPrice().signum() <= 0 || s.getTotalSeats() <= 0) {
+                throw new SQLException("班次时间、票价或座位数不合法");
+            }
+
+            // 1. 取航线航行时长和船舶容量，校验座位数
             int durationMin;
+            int shipCapacity;
             try (PreparedStatement ps = conn.prepareStatement(
-                    "SELECT duration_min FROM route WHERE id=?")) {
-                ps.setInt(1, s.getRouteId());
+                    "SELECT r.duration_min, sh.total_seats AS ship_capacity "
+                  + "FROM route r WITH (HOLDLOCK) JOIN ship sh WITH (HOLDLOCK) ON sh.id=? "
+                  + "WHERE r.id=? AND r.is_deleted=0 AND sh.is_deleted=0")) {
+                ps.setInt(1, s.getShipId());
+                ps.setInt(2, s.getRouteId());
                 try (ResultSet rs = ps.executeQuery()) {
-                    rs.next();
+                    if (!rs.next()) throw new SQLException("航线或船舶不存在");
                     durationMin = rs.getInt(1);
+                    shipCapacity = rs.getInt("ship_capacity");
                 }
+            }
+            if (s.getTotalSeats() > shipCapacity) {
+                throw new SQLException("班次座位数不能超过船舶容量 " + shipCapacity);
+            }
+            if (timeConflictInTransaction(conn, s.getShipId(), s.getDepartTime(), 0)) {
+                throw new SQLException("时间冲突：该船在这个发船时间已有班次");
             }
             Timestamp arrive = new Timestamp(
                     s.getDepartTime().getTime() + durationMin * 60L * 1000L);
@@ -198,37 +216,236 @@ public class ScheduleDAO {
         }
     }
 
-    /** 修改班次（票价、状态等），时间冲突在 Servlet 里校验 */
-    public int update(Schedule s) throws SQLException {
-        String sql = "UPDATE schedule SET route_id=?,ship_id=?,depart_time=?,price=?,status=? WHERE id=?";
-        try (Connection conn = DBUtil.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setInt(1, s.getRouteId());
-            ps.setInt(2, s.getShipId());
-            ps.setTimestamp(3, s.getDepartTime());
-            ps.setBigDecimal(4, s.getPrice());
-            ps.setString(5, s.getStatus());
-            ps.setInt(6, s.getId());
-            return ps.executeUpdate();
-        }
-    }
-
     /**
-     * 取消班次（逻辑删除）+ 自动退票事务 —— 任务书并发/事务考核重点。
-     * 步骤：
-     *  1) 把该班次所有“已售/锁定”座位恢复为“可售”
-     *  2) 已支付订单改为“已退票”，记录退款金额和原因
-     *  3) 对应船票改为“已退票”
-     *  4) 班次打 is_deleted=1、状态=已取消
-     * 全部在同一事务内，任一失败全部回滚。
+     * 修改班次：重新计算到达时间，并在事务内校验时间冲突和座位容量。
+     * 已创建班次不允许减少座位数；如需缩减，取消后重新创建。
      */
-    public void cancelSchedule(int scheduleId) throws SQLException {
+    public int update(Schedule s) throws SQLException {
         Connection conn = null;
         try {
             conn = DBUtil.getConnection();
             conn.setAutoCommit(false);
 
-            // 1. 座位恢复可售
+            int currentTotal;
+            int soldSeats;
+            Timestamp currentDepart;
+            String currentStatus;
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "SELECT total_seats, sold_seats, depart_time, status FROM schedule "
+                  + "WITH (UPDLOCK, HOLDLOCK) WHERE id=? AND is_deleted=0")) {
+                ps.setInt(1, s.getId());
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (!rs.next()) throw new SQLException("班次不存在或已删除");
+                    currentTotal = rs.getInt("total_seats");
+                    soldSeats = rs.getInt("sold_seats");
+                    currentDepart = rs.getTimestamp("depart_time");
+                    currentStatus = rs.getString("status");
+                }
+            }
+
+            int newTotal = s.getTotalSeats() > 0 ? s.getTotalSeats() : currentTotal;
+            if (newTotal < soldSeats) {
+                throw new SQLException("座位数不能少于已售座位数 " + soldSeats);
+            }
+            if (newTotal < currentTotal) {
+                throw new SQLException("已创建班次不能减少座位数，请取消后重新创建");
+            }
+
+            int durationMin;
+            int shipCapacity;
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "SELECT r.duration_min, sh.total_seats AS ship_capacity "
+                  + "FROM route r WITH (HOLDLOCK) JOIN ship sh WITH (HOLDLOCK) ON sh.id=? "
+                  + "WHERE r.id=? AND r.is_deleted=0 AND sh.is_deleted=0")) {
+                ps.setInt(1, s.getShipId());
+                ps.setInt(2, s.getRouteId());
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (!rs.next()) throw new SQLException("航线或船舶不存在");
+                    durationMin = rs.getInt("duration_min");
+                    shipCapacity = rs.getInt("ship_capacity");
+                }
+            }
+            if (newTotal > shipCapacity) {
+                throw new SQLException("班次座位数不能超过船舶容量 " + shipCapacity);
+            }
+
+            Timestamp depart = s.getDepartTime() == null ? currentDepart : s.getDepartTime();
+            if (depart == null || s.getPrice() == null || s.getPrice().signum() <= 0) {
+                throw new SQLException("班次时间或票价不合法");
+            }
+            String status = s.getStatus() == null ? currentStatus : s.getStatus();
+            if (!("待发布".equals(status) || "售票中".equals(status)
+                    || "已发船".equals(status) || "已完成".equals(status))) {
+                throw new SQLException("班次状态不合法");
+            }
+            if (timeConflictInTransaction(conn, s.getShipId(), depart, s.getId())) {
+                throw new SQLException("时间冲突：该船在这个发船时间已有班次");
+            }
+
+            Timestamp arrive = new Timestamp(
+                    depart.getTime() + durationMin * 60L * 1000L);
+            int updated;
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "UPDATE schedule SET route_id=?, ship_id=?, depart_time=?, arrive_time=?, "
+                  + "price=?, total_seats=?, status=? WHERE id=? AND is_deleted=0")) {
+                ps.setInt(1, s.getRouteId());
+                ps.setInt(2, s.getShipId());
+                ps.setTimestamp(3, depart);
+                ps.setTimestamp(4, arrive);
+                ps.setBigDecimal(5, s.getPrice());
+                ps.setInt(6, newTotal);
+                ps.setString(7, status);
+                ps.setInt(8, s.getId());
+                updated = ps.executeUpdate();
+            }
+            if (updated != 1) throw new SQLException("班次更新失败");
+            if (newTotal > currentTotal) {
+                addMissingSeats(conn, s.getId(), newTotal);
+            }
+
+            conn.commit();
+            return updated;
+        } catch (SQLException e) {
+            if (conn != null) conn.rollback();
+            throw e;
+        } finally {
+            if (conn != null) {
+                conn.setAutoCommit(true);
+                DBUtil.close(conn);
+            }
+        }
+    }
+
+    private boolean timeConflictInTransaction(Connection conn, int shipId,
+            Timestamp departTime, int excludeId) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement(
+                "SELECT COUNT(*) FROM schedule WITH (UPDLOCK, HOLDLOCK) "
+              + "WHERE ship_id=? AND depart_time=? AND is_deleted=0 AND id<>?")) {
+            ps.setInt(1, shipId);
+            ps.setTimestamp(2, departTime);
+            ps.setInt(3, excludeId);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() && rs.getInt(1) > 0;
+            }
+        }
+    }
+
+    /** 班次扩容时补齐缺少的座位；已存在编号不会被覆盖。 */
+    private void addMissingSeats(Connection conn, int scheduleId, int newTotal)
+            throws SQLException {
+        Set<String> existing = new HashSet<String>();
+        try (PreparedStatement ps = conn.prepareStatement(
+                "SELECT seat_no FROM seat WHERE schedule_id=?")) {
+            ps.setInt(1, scheduleId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) existing.add(rs.getString(1));
+            }
+        }
+        try (PreparedStatement ps = conn.prepareStatement(
+                "INSERT INTO seat(schedule_id,seat_no,seat_status) VALUES (?,?,N'可售')")) {
+            for (int j = 1; j <= newTotal; j++) {
+                String seatNo = seatNo(j);
+                if (existing.contains(seatNo)) continue;
+                ps.setInt(1, scheduleId);
+                ps.setString(2, seatNo);
+                ps.addBatch();
+            }
+            ps.executeBatch();
+        }
+    }
+
+    private String seatNo(int index) {
+        return "" + (char) ('A' + (index - 1) / 10) + (((index - 1) % 10) + 1);
+    }
+
+    /**
+     * 取消班次（逻辑删除）+ 自动退票事务。
+     * 业务规则：班次发船后禁止取消。
+     * 处理范围：待支付订单取消、已支付/已检票订单全额退款并写资金流水。
+     *
+     * @return null 表示成功；否则返回不能取消的原因
+     */
+    public String cancelSchedule(int scheduleId) throws SQLException {
+        Connection conn = null;
+        try {
+            conn = DBUtil.getConnection();
+            conn.setAutoCommit(false);
+
+            // 1) 锁班次并校验是否允许取消
+            String scheduleStatus;
+            Timestamp departTime;
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "SELECT status, depart_time FROM schedule "
+                  + "WITH (UPDLOCK, HOLDLOCK) WHERE id=? AND is_deleted=0")) {
+                ps.setInt(1, scheduleId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (!rs.next()) {
+                        conn.rollback();
+                        return "班次不存在或已取消";
+                    }
+                    scheduleStatus = rs.getString("status");
+                    departTime = rs.getTimestamp("depart_time");
+                }
+            }
+            if ("已发船".equals(scheduleStatus) || "已完成".equals(scheduleStatus)
+                    || departTime == null
+                    || !departTime.after(new Timestamp(System.currentTimeMillis()))) {
+                conn.rollback();
+                return "班次已发船或已完成，不能取消";
+            }
+
+            // 2) 锁订单，避免与支付/退票/改签并发；已完成订单不允许被系统取消
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "SELECT COUNT(*) FROM [order] WITH (UPDLOCK, HOLDLOCK) "
+                  + "WHERE schedule_id=? AND status=N'已完成'")) {
+                ps.setInt(1, scheduleId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next() && rs.getInt(1) > 0) {
+                        conn.rollback();
+                        return "班次存在已完成订单，不能取消";
+                    }
+                }
+            }
+
+            // 3) 已支付/已检票订单：全额退款，并写资金流水
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "INSERT INTO payment_log(order_id,order_no,type,amount,direction,remark) "
+                  + "SELECT id, order_no, N'退票退款', total_amount, 'out', "
+                  + "N'班次取消系统自动退票' FROM [order] "
+                  + "WHERE schedule_id=? AND status IN (N'已支付',N'已检票')")) {
+                ps.setInt(1, scheduleId);
+                ps.executeUpdate();
+            }
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "UPDATE [order] SET status=N'已退票', refund_amount=total_amount, "
+                  + "refund_reason=N'班次取消系统自动退票', refund_time=GETDATE(), "
+                  + "refund_eta=DATEADD(DAY,3,GETDATE()), cancel_time=GETDATE() "
+                  + "WHERE schedule_id=? AND status IN (N'已支付',N'已检票')")) {
+                ps.setInt(1, scheduleId);
+                ps.executeUpdate();
+            }
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "UPDATE [order] SET status=N'已取消', cancel_time=GETDATE() "
+                  + "WHERE schedule_id=? AND status=N'待支付'")) {
+                ps.setInt(1, scheduleId);
+                ps.executeUpdate();
+            }
+
+            // 4) 船票状态跟随订单
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "UPDATE ticket SET status=N'已取消' "
+                  + "WHERE schedule_id=? AND status=N'待支付'")) {
+                ps.setInt(1, scheduleId);
+                ps.executeUpdate();
+            }
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "UPDATE ticket SET status=N'已退票' "
+                  + "WHERE schedule_id=? AND status IN (N'已支付',N'已检票')")) {
+                ps.setInt(1, scheduleId);
+                ps.executeUpdate();
+            }
+
+            // 5) 座位恢复可售
             try (PreparedStatement ps = conn.prepareStatement(
                     "UPDATE seat SET seat_status=N'可售', lock_time=NULL "
                   + "WHERE schedule_id=? AND seat_status<>N'可售'")) {
@@ -236,24 +453,7 @@ public class ScheduleDAO {
                 ps.executeUpdate();
             }
 
-            // 2. 已支付订单退票（全额退款 + 理由）
-            try (PreparedStatement ps = conn.prepareStatement(
-                    "UPDATE [order] SET status=N'已退票', refund_amount=total_amount, "
-                  + "refund_reason=N'班次取消系统自动退票', refund_time=GETDATE(), cancel_time=GETDATE() "
-                  + "WHERE schedule_id=? AND status=N'已支付'")) {
-                ps.setInt(1, scheduleId);
-                ps.executeUpdate();
-            }
-
-            // 3. 已支付/待支付船票改已退票
-            try (PreparedStatement ps = conn.prepareStatement(
-                    "UPDATE ticket SET status=N'已退票' "
-                  + "WHERE schedule_id=? AND status IN (N'已支付',N'待支付')")) {
-                ps.setInt(1, scheduleId);
-                ps.executeUpdate();
-            }
-
-            // 4. 班次逻辑删除 + 状态已取消 + 已售清零
+            // 6) 班次逻辑删除
             try (PreparedStatement ps = conn.prepareStatement(
                     "UPDATE schedule SET is_deleted=1, status=N'已取消', sold_seats=0 WHERE id=?")) {
                 ps.setInt(1, scheduleId);
@@ -261,6 +461,7 @@ public class ScheduleDAO {
             }
 
             conn.commit();
+            return null;
         } catch (SQLException e) {
             if (conn != null) conn.rollback();
             throw e;
