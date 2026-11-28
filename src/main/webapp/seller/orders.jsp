@@ -42,7 +42,7 @@
 </div>
 <div class="desk-layout">
     <aside class="desk-menu">
-        <div onclick="location.href='<%= ctx %>/seller/home.jsp'">工作台</div>
+        <div onclick="location.href='<%= ctx %>/seller/home'">工作台</div>
         <div onclick="location.href='<%= ctx %>/seller/sell'">🎫 售票</div>
         <div class="active">📋 销售订单</div>
         <div onclick="location.href='<%= ctx %>/seller/checkin'">▶ 检票</div>
@@ -96,19 +96,35 @@
                     <button class="btn-sm btn-refund">退票</button>
                 </form>
             <% } %>
-            <% if ("已支付".equals(st)) { %>
+            </div>
+
+            <%
+                boolean canChange = "已支付".equals(st) && o.getDepartTime() != null
+                        && o.getDepartTime().after(new java.util.Date());
+                List<String> validChanges = new java.util.ArrayList<String>();
+                if (canChange) {
+                    for (String opt : changeOptions) {
+                        String[] parts = opt.split("\\|", 4);
+                        if (parts.length == 4
+                                && (Long.parseLong(parts[0]) == o.getScheduleId()
+                                    || Long.parseLong(parts[2]) > o.getDepartTime().getTime())) {
+                            validChanges.add(opt);
+                        }
+                    }
+                }
+            %>
+            <% if (!validChanges.isEmpty()) { %>
                 <form method="post" action="<%= ctx %>/book" style="display:inline;margin-top:8px" onsubmit="return confirm('确定改签？')">
                     <input type="hidden" name="action" value="change"><input type="hidden" name="orderId" value="<%= o.getId() %>">
                     <select name="changeTarget">
-                        <% for (String opt : changeOptions) { String[] parts = opt.split("\\|", 3); %>
-                        <option value="<%= parts[0] %>|<%= parts[1] %>"><%= parts[2] %></option>
+                        <% for (String opt : validChanges) { String[] parts = opt.split("\\|", 4); %>
+                        <option value="<%= parts[0] %>|<%= parts[1] %>"><%= parts[3] %></option>
                         <% } %>
                     </select>
                     <input type="text" name="reason" placeholder="改签原因(选填)" size="10">
                     <button class="btn-sm btn-pay">改签</button>
                 </form>
             <% } %>
-            </div>
         </div>
         <% } %>
     </main>

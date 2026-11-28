@@ -15,11 +15,10 @@ import javax.servlet.http.HttpSession;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/** 售票员销售订单：列出本人经办订单，并提供支付 / 退票 / 改签数据 */
+/** 售票员销售订单：列出本人经办订单，并提供支付 / 退票数据 */
 @WebServlet("/seller/orders")
 public class SellerOrderServlet extends HttpServlet {
     private final OrderDAO orderDAO = new OrderDAO();
@@ -36,7 +35,7 @@ public class SellerOrderServlet extends HttpServlet {
             return;
         }
         if (!"seller".equals(u.getRole()) && !"admin".equals(u.getRole())) {
-            resp.sendRedirect(req.getContextPath() + "/passenger/home.jsp");
+            resp.sendRedirect(req.getContextPath() + "/passenger/home");
             return;
         }
 
@@ -51,24 +50,18 @@ public class SellerOrderServlet extends HttpServlet {
             for (String seatNo : orderDAO.findAvailableSeats(s.getId())) {
                 String label = s.getRouteName() + " " + fmt.format(s.getDepartTime())
                              + " " + seatNo + "座 ￥" + s.getPrice();
-                changeOptions.add(s.getId() + "|" + seatNo + "|" + label);
+                changeOptions.add(s.getId() + "|" + seatNo + "|"
+                        + s.getDepartTime().getTime() + "|" + label);
             }
         }
         req.setAttribute("changeOptions", changeOptions);
 
-        Map<Integer, List<String>> changeInfos = new HashMap<Integer, List<String>>();
-        for (Order o : orders) {
-            List<String> infos = orderDAO.findChangeInfo(o.getId());
-            if (!infos.isEmpty()) changeInfos.put(o.getId(), infos);
-        }
-        req.setAttribute("changeInfos", changeInfos);
+        List<Integer> orderIds = new ArrayList<Integer>();
+        for (Order o : orders) orderIds.add(o.getId());
 
-        Map<Integer, List<String>> paymentLogs = new HashMap<Integer, List<String>>();
-        for (Order o : orders) {
-            List<String> logs = orderDAO.findPaymentLogs(o.getId());
-            if (!logs.isEmpty()) paymentLogs.put(o.getId(), logs);
-        }
-        req.setAttribute("paymentLogs", paymentLogs);
+        Map<Integer, List<String>> changeInfos = orderDAO.findChangeInfoByOrderIds(orderIds);
+        req.setAttribute("changeInfos", changeInfos);
+        req.setAttribute("paymentLogs", orderDAO.findPaymentLogsByOrderIds(orderIds));
         req.setAttribute("msg", req.getParameter("msg"));
         req.getRequestDispatcher("/seller/orders.jsp").forward(req, resp);
     }

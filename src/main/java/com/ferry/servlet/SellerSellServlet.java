@@ -51,7 +51,7 @@ public class SellerSellServlet extends HttpServlet {
             return false;
         }
         if (!"seller".equals(u.getRole()) && !"admin".equals(u.getRole())) {
-            resp.sendRedirect(req.getContextPath() + "/passenger/home.jsp");
+            resp.sendRedirect(req.getContextPath() + "/passenger/home");
             return false;
         }
         return true;

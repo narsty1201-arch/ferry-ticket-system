@@ -3,6 +3,7 @@ package com.ferry.servlet;
 import com.ferry.dao.UserDAO;
 import com.ferry.entity.User;
 import com.ferry.util.MD5Util;
+import com.ferry.util.Page;
 
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -30,8 +31,13 @@ public class AdminUserServlet extends HttpServlet {
         if (role == null) role = "all";
         if (keyword == null) keyword = "";
 
-        List<User> users = dao.findAll(role, keyword);
-        req.setAttribute("users", users);
+        int pageSize = 10;
+        int total = dao.countAll(role, keyword);
+        int page = Page.clamp(Page.parse(req.getParameter("page"), 1), total, pageSize);
+        List<User> users = dao.findAll(role, keyword, page, pageSize);
+        req.setAttribute("pageData", new Page<User>(users, page, pageSize, total));
+        req.setAttribute("pageUrl", "users?role=" + enc(role)
+                + "&keyword=" + enc(keyword) + "&page=");
         req.setAttribute("role", role);
         req.setAttribute("keyword", keyword);
         req.setAttribute("msg", req.getParameter("msg"));

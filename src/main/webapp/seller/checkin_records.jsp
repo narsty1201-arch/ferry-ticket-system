@@ -1,10 +1,12 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
-<%@ page import="java.util.List,java.util.Map" %>
+<%@ page import="com.ferry.util.Page,java.util.List,java.util.Map" %>
 <%
     if (session.getAttribute("loginUser") == null) { response.sendRedirect(request.getContextPath() + "/login.jsp"); return; }
-    @SuppressWarnings("unchecked")
-    List<Map<String,Object>> records = (List<Map<String,Object>>) request.getAttribute("records");
-    if (records == null) records = new java.util.ArrayList<Map<String,Object>>();
+    Page<Map<String, Object>> pageData = (Page<Map<String, Object>>) request.getAttribute("pageData");
+    if (pageData == null) pageData = Page.empty(1, 15);
+    List<Map<String,Object>> records = pageData.getItems();
+    String pageUrl = (String) request.getAttribute("pageUrl");
+    if (pageUrl == null) pageUrl = "checkin?action=records&page=";
 %>
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -24,7 +26,7 @@
 <div class="desk-layout">
 <% if (isAdmin) { %>
     <aside class="admin-menu" style="width:200px">
-        <div><a href="<%= ctx %>/admin/home.jsp">数据概览</a></div>
+        <div><a href="<%= ctx %>/admin/home">数据概览</a></div>
         <div><a href="<%= ctx %>/admin/route">航线管理</a></div>
         <div><a href="<%= ctx %>/admin/ship">船舶管理</a></div>
         <div><a href="<%= ctx %>/admin/schedule">班次管理</a></div>
@@ -41,7 +43,7 @@
     </aside>
 <% } %>
     <main class="desk-main">
-        <h2>检票记录 <span class="muted" style="font-size:14px">共 <%= records.size() %> 条</span></h2>
+        <h2>检票记录 <span class="muted" style="font-size:14px">共 <%= pageData.getTotal() %> 条</span></h2>
         <table class="data-table">
             <tr><th>序号</th><th>订单号</th><th>乘客</th><th>身份证</th><th>座位</th><th>航线</th><th>发船</th><th>检票时间</th><th>检票员</th><th>状态</th></tr>
             <% for (int i = 0; i < records.size(); i++) { Map<String,Object> r = records.get(i); %>
@@ -60,6 +62,7 @@
             <% } %>
             <% if (records.isEmpty()) { %><tr><td colspan="10" style="text-align:center;color:#9ca3af">暂无检票记录</td></tr><% } %>
         </table>
+        <%@ include file="/WEB-INF/pagination.jspf" %>
     </main>
 </div>
 </body>

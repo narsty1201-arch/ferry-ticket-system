@@ -118,7 +118,7 @@ CREATE TABLE dbo.[order] (
     id              INT IDENTITY(1,1) NOT NULL,
     order_no        VARCHAR(30)   NOT NULL,
     schedule_id     INT           NOT NULL,
-    passenger_id    INT           NOT NULL,
+    passenger_id    INT           NULL,
     seller_id       INT           NULL,
     total_amount    DECIMAL(10,2) NOT NULL,
     status          NVARCHAR(10)  NOT NULL CONSTRAINT DF_order_status DEFAULT (N'待支付'),
@@ -217,7 +217,12 @@ CREATE INDEX IX_paylog_order ON dbo.payment_log(order_id);
 CREATE INDEX IX_ticket_order ON dbo.ticket(order_id);
 CREATE INDEX IX_change_order ON dbo.change_log(order_id);
 CREATE INDEX IX_order_schedule ON dbo.[order](schedule_id);
+CREATE INDEX IX_order_passenger ON dbo.[order](passenger_id);
+CREATE INDEX IX_order_seller ON dbo.[order](seller_id);
+CREATE INDEX IX_order_status_id ON dbo.[order](status, id);
 CREATE INDEX IX_schedule_route ON dbo.schedule(route_id);
+CREATE INDEX IX_user_role_id ON dbo.[user](role, id);
+CREATE INDEX IX_user_role_idcard ON dbo.[user](role, id_card);
 GO
 
 CREATE VIEW dbo.v_seller_performance AS

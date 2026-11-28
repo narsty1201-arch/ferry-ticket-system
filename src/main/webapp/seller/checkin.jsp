@@ -29,7 +29,7 @@
         <div class="active">▶ 检票</div>
         <div onclick="location.href='${pageContext.request.contextPath}/seller/checkin?action=records'">检票记录</div>
         <div onclick="location.href='${pageContext.request.contextPath}/seller/checkin?action=stats'">检票统计</div>
-        <div onclick="location.href='home.jsp'">返回首页</div>
+        <div onclick="location.href='${pageContext.request.contextPath}/seller/home'">返回首页</div>
     </aside>
     <main class="desk-main">
         <h2>检票登船</h2>

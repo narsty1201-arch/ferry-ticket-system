@@ -43,6 +43,7 @@ public class OrderDAOTest {
     private int newScheduleId;
     private int conflictScheduleId;
     private int oldSeatId;
+    private int sameSeatId;
     private int newSeatId;
     private int conflictSeatId;
     private int orderId;
@@ -70,6 +71,7 @@ public class OrderDAOTest {
                     DEFAULT_OLD_PRICE, 1);
 
             oldSeatId = insertSeat(conn, oldScheduleId, "A1", "已售");
+            sameSeatId = insertSeat(conn, oldScheduleId, "A2", "可售");
             newSeatId = insertSeat(conn, newScheduleId, "B1", "可售");
             conflictSeatId = insertSeat(conn, conflictScheduleId, "C1", "已售");
 
@@ -92,7 +94,8 @@ public class OrderDAOTest {
                     + "WHERE t.order_id IN (?,?)", orderId, conflictOrderId);
             execute(conn, "DELETE FROM ticket WHERE order_id IN (?,?)", orderId, conflictOrderId);
             execute(conn, "DELETE FROM [order] WHERE id IN (?,?)", orderId, conflictOrderId);
-            execute(conn, "DELETE FROM seat WHERE id IN (?,?,?)", oldSeatId, newSeatId, conflictSeatId);
+            execute(conn, "DELETE FROM seat WHERE id IN (?,?,?,?)",
+                    oldSeatId, sameSeatId, newSeatId, conflictSeatId);
             execute(conn, "DELETE FROM schedule WHERE id IN (?,?,?)",
                     oldScheduleId, newScheduleId, conflictScheduleId);
             execute(conn, "DELETE FROM ship WHERE id=?", shipId);
@@ -110,6 +113,35 @@ public class OrderDAOTest {
         assertTrue(result, result.contains("已补差价 ￥50.00"));
         assertSuccessfulChange(DEFAULT_NEW_PRICE, new BigDecimal("50.00"));
         assertPaymentLog("改签补款", "in", new BigDecimal("50.00"));
+    }
+
+    @Test
+    public void changeSeatOnSameScheduleKeepsScheduleAndSoldCount() throws Exception {
+        String result = dao.change(orderId, oldScheduleId, sameSeatId, operatorId, "同班次换座");
+
+        assertNotNull(result);
+        assertTrue(result, result.contains("改签成功"));
+        assertEquals("可售", seatStatus(oldSeatId));
+        assertEquals("已售", seatStatus(sameSeatId));
+        assertEquals(1, soldSeats(oldScheduleId));
+        assertOrderAndTicket(oldScheduleId, sameSeatId, DEFAULT_OLD_PRICE);
+        assertEquals("已支付", orderStatus());
+        assertEquals("已支付", ticketStatus());
+
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                     "SELECT old_schedule_id,new_schedule_id,old_seat_id,new_seat_id,price_diff "
+                   + "FROM change_log WHERE order_id=?")) {
+            ps.setInt(1, orderId);
+            try (ResultSet rs = ps.executeQuery()) {
+                assertTrue("缺少同班次换座日志", rs.next());
+                assertEquals(oldScheduleId, rs.getInt("old_schedule_id"));
+                assertEquals(oldScheduleId, rs.getInt("new_schedule_id"));
+                assertEquals(oldSeatId, rs.getInt("old_seat_id"));
+                assertEquals(sameSeatId, rs.getInt("new_seat_id"));
+                assertMoney(BigDecimal.ZERO, rs.getBigDecimal("price_diff"));
+            }
+        }
     }
 
     @Test

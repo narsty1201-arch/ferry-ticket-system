@@ -28,7 +28,7 @@ public class StatServlet extends HttpServlet {
         }
         // 权限：统计报表仅管理员可见，普通乘客/售票员不得查看全局营收
         if (!"admin".equals(u.getRole())) {
-            resp.sendRedirect(req.getContextPath() + "/passenger/home.jsp");
+            resp.sendRedirect(req.getContextPath() + "/passenger/home");
             return;
         }
         Map<String, Object> ov = dao.overview();

@@ -35,9 +35,31 @@ public class UserDAO {
             ps.setString(2, u.getPassword());   // 调用方已 MD5 加密
             ps.setString(3, u.getRealName());
             ps.setString(4, u.getPhone());
-            ps.setString(5, u.getIdCard());
+            ps.setString(5, normalizeIdCard(u.getIdCard()));
             return ps.executeUpdate();
         }
+    }
+
+    /**
+     * 代客购票：按身份证匹配已注册的乘客账号。
+     * 找到返回乘客 user.id；未注册返回 null（订单仍可出票，真实身份保存在 ticket 表）。
+     */
+    public Integer findPassengerIdByIdCard(String idCard) {
+        String normalized = normalizeIdCard(idCard);
+        if (normalized == null) return null;
+        String sql = "SELECT TOP 1 id FROM [user] "
+                   + "WHERE role='passenger' AND id_card IS NOT NULL "
+                   + "AND UPPER(LTRIM(RTRIM(id_card)))=? ORDER BY id";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, normalized);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return rs.getInt(1);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return null;
     }
 
     /** 密码错误一次：fail_count+1，达到5次则锁定10分钟 */
@@ -95,6 +117,65 @@ public class UserDAO {
         return list;
     }
 
+    /** 管理员：用户总数（筛选条件与列表一致） */
+    public int countAll(String role, String keyword) {
+        StringBuilder sql = new StringBuilder("SELECT COUNT(*) FROM [user] WHERE 1=1 ");
+        appendFilter(sql, role, keyword);
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+            bindFilter(ps, role, keyword);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getInt(1) : 0;
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return 0;
+        }
+    }
+
+    /** 管理员：分页查询用户 */
+    public List<User> findAll(String role, String keyword, int page, int pageSize) {
+        List<User> list = new ArrayList<User>();
+        StringBuilder sql = new StringBuilder("SELECT * FROM [user] WHERE 1=1 ");
+        appendFilter(sql, role, keyword);
+        sql.append("ORDER BY id OFFSET ? ROWS FETCH NEXT ? ROWS ONLY");
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+            int idx = bindFilter(ps, role, keyword);
+            ps.setInt(idx++, (page - 1) * pageSize);
+            ps.setInt(idx, pageSize);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) list.add(map(rs));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return list;
+    }
+
+    private void appendFilter(StringBuilder sql, String role, String keyword) {
+        if (role != null && !role.trim().isEmpty() && !"all".equals(role)) {
+            sql.append("AND role = ? ");
+        }
+        if (keyword != null && !keyword.trim().isEmpty()) {
+            sql.append("AND (username LIKE ? OR real_name LIKE ? OR phone LIKE ?) ");
+        }
+    }
+
+    private int bindFilter(PreparedStatement ps, String role, String keyword) throws SQLException {
+        int idx = 1;
+        if (role != null && !role.trim().isEmpty() && !"all".equals(role)) {
+            ps.setString(idx++, role.trim());
+        }
+        if (keyword != null && !keyword.trim().isEmpty()) {
+            String kw = "%" + keyword.trim() + "%";
+            ps.setString(idx++, kw);
+            ps.setString(idx++, kw);
+            ps.setString(idx++, kw);
+        }
+        return idx;
+    }
+
     /** 管理员：启用 / 禁用用户 */
     public boolean updateStatus(int id, String status) {
         String sql = "UPDATE [user] SET status=? WHERE id=?";
@@ -145,7 +226,7 @@ public class UserDAO {
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, realName);
             ps.setString(2, phone);
-            ps.setString(3, idCard == null || idCard.trim().isEmpty() ? null : idCard.trim());
+            ps.setString(3, normalizeIdCard(idCard));
             ps.setInt(4, id);
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
@@ -182,5 +263,10 @@ public class UserDAO {
         u.setLockUntil(rs.getTimestamp("lock_until"));
         u.setCreateTime(rs.getTimestamp("create_time"));
         return u;
+    }
+
+    private String normalizeIdCard(String idCard) {
+        if (idCard == null || idCard.trim().isEmpty()) return null;
+        return idCard.trim().toUpperCase();
     }
 }

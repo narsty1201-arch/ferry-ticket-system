@@ -1,6 +1,7 @@
 package com.ferry.dao;
 
 import com.ferry.entity.Order;
+import com.ferry.entity.SeatCell;
 import com.ferry.entity.Ticket;
 import com.ferry.util.DBUtil;
 
@@ -9,7 +10,9 @@ import java.sql.*;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 订单 DAO —— 阶段4核心技术（任务书考核重点）：
@@ -119,7 +122,8 @@ public class OrderDAO {
                   + "VALUES (?,?,?,?,?,N'待支付')", Statement.RETURN_GENERATED_KEYS)) {
                 ps.setString(1, orderNo);
                 ps.setInt(2, o.getScheduleId());
-                ps.setInt(3, o.getPassengerId());
+                if (o.getPassengerId() == null) ps.setNull(3, Types.INTEGER);
+                else ps.setInt(3, o.getPassengerId());
                 if (o.getSellerId() == null) ps.setNull(4, Types.INTEGER);
                 else ps.setInt(4, o.getSellerId());
                 ps.setBigDecimal(5, o.getTotalAmount());
@@ -515,7 +519,8 @@ public class OrderDAO {
      * 改签前置校验：返回 null 表示允许，否则返回原因。
      */
     public String checkChange(int orderId, int newScheduleId) {
-        String sql = "SELECT o.status, s.depart_time AS old_depart, ns.status AS new_status, "
+        String sql = "SELECT o.status, o.schedule_id AS old_schedule_id, "
+                   + "s.depart_time AS old_depart, ns.status AS new_status, "
                    + "ns.depart_time AS new_depart "
                    + "FROM [order] o JOIN schedule s ON s.id=o.schedule_id "
                    + "JOIN schedule ns ON ns.id=? WHERE o.id=?";
@@ -532,7 +537,10 @@ public class OrderDAO {
                         || !nd.after(new Timestamp(System.currentTimeMillis()))) {
                     return "目标班次已发船或停止售票，不能改签";
                 }
-                if (od != null && !nd.after(od)) return "只能改签到发船时间更晚的班次";
+                int oldScheduleId = rs.getInt("old_schedule_id");
+                if (od != null && newScheduleId != oldScheduleId && !nd.after(od)) {
+                    return "只能改签到同班次其他座位，或发船时间更晚的班次";
+                }
                 return null;
             }
         } catch (SQLException e) {
@@ -569,7 +577,9 @@ public class OrderDAO {
                 conn.rollback();
                 return null;
             }
-            if (current.departTime == null || !target.departTime.after(current.departTime)) {
+            if (current.departTime == null
+                    || (newScheduleId != current.scheduleId
+                        && !target.departTime.after(current.departTime))) {
                 conn.rollback();
                 return null;
             }
@@ -879,8 +889,27 @@ public class OrderDAO {
         return list;
     }
 
-    /** 管理员：查询全部订单（按状态 / 关键字筛选），联表带出班次、座位、乘客 */
-    public List<Order> findAllForAdmin(String status, String keyword) {
+    /** 管理员：订单总数（筛选条件与列表完全一致，供分页用） */
+    public int countForAdmin(String status, String keyword) {
+        StringBuilder sql = new StringBuilder(
+                "SELECT COUNT(DISTINCT o.id) FROM [order] o "
+              + "LEFT JOIN ticket t ON t.order_id=o.id "
+              + "LEFT JOIN [user] u ON u.id=o.passenger_id WHERE 1=1 ");
+        appendAdminOrderFilter(sql, status, keyword);
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+            bindAdminOrderFilter(ps, status, keyword);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getInt(1) : 0;
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return 0;
+        }
+    }
+
+    /** 管理员：分页查询订单（按状态 / 关键字筛选），联表带出班次、座位、乘客 */
+    public List<Order> findForAdmin(String status, String keyword, int page, int pageSize) {
         List<Order> list = new ArrayList<Order>();
         StringBuilder sql = new StringBuilder(
                 "SELECT o.*, s.depart_time, r.route_name, sh.ship_name, se.seat_no, t.passenger_name "
@@ -891,23 +920,13 @@ public class OrderDAO {
               + "LEFT JOIN ticket t ON t.order_id=o.id "
               + "LEFT JOIN seat se ON se.id=t.seat_id "
               + "LEFT JOIN [user] u ON u.id=o.passenger_id WHERE 1=1 ");
-        boolean hasStatus = status != null && !status.trim().isEmpty() && !"all".equals(status);
-        boolean hasKw = keyword != null && !keyword.trim().isEmpty();
-        if (hasStatus) sql.append("AND o.status = ? ");
-        if (hasKw) sql.append("AND (o.order_no LIKE ? OR t.passenger_name LIKE ? "
-                            + "OR u.username LIKE ? OR t.passenger_phone LIKE ?) ");
-        sql.append("ORDER BY o.id DESC");
+        appendAdminOrderFilter(sql, status, keyword);
+        sql.append("ORDER BY o.id DESC OFFSET ? ROWS FETCH NEXT ? ROWS ONLY");
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql.toString())) {
-            int idx = 1;
-            if (hasStatus) ps.setString(idx++, status.trim());
-            if (hasKw) {
-                String kw = "%" + keyword.trim() + "%";
-                ps.setString(idx++, kw);
-                ps.setString(idx++, kw);
-                ps.setString(idx++, kw);
-                ps.setString(idx++, kw);
-            }
+            int idx = bindAdminOrderFilter(ps, status, keyword);
+            ps.setInt(idx++, (page - 1) * pageSize);
+            ps.setInt(idx, pageSize);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) list.add(map(rs));
             }
@@ -915,6 +934,32 @@ public class OrderDAO {
             e.printStackTrace();
         }
         return list;
+    }
+
+    private void appendAdminOrderFilter(StringBuilder sql, String status, String keyword) {
+        if (status != null && !status.trim().isEmpty() && !"all".equals(status)) {
+            sql.append("AND o.status = ? ");
+        }
+        if (keyword != null && !keyword.trim().isEmpty()) {
+            sql.append("AND (o.order_no LIKE ? OR t.passenger_name LIKE ? "
+                     + "OR u.username LIKE ? OR t.passenger_phone LIKE ?) ");
+        }
+    }
+
+    private int bindAdminOrderFilter(PreparedStatement ps, String status, String keyword)
+            throws SQLException {
+        int idx = 1;
+        if (status != null && !status.trim().isEmpty() && !"all".equals(status)) {
+            ps.setString(idx++, status.trim());
+        }
+        if (keyword != null && !keyword.trim().isEmpty()) {
+            String kw = "%" + keyword.trim() + "%";
+            ps.setString(idx++, kw);
+            ps.setString(idx++, kw);
+            ps.setString(idx++, kw);
+            ps.setString(idx++, kw);
+        }
+        return idx;
     }
 
     /** 按订单号查询（检票用，阶段5） */
@@ -968,6 +1013,26 @@ public class OrderDAO {
             e.printStackTrace();
         }
         return seats;
+    }
+
+    /** 查询某班次全部座位及状态，按排号、座号自然排序（供可视化选座图使用） */
+    public List<SeatCell> findSeatMap(int scheduleId) {
+        List<SeatCell> cells = new ArrayList<>();
+        String sql = "SELECT seat_no, seat_status FROM seat WHERE schedule_id=? "
+                   + "ORDER BY LEFT(seat_no,1), "
+                   + "TRY_CAST(SUBSTRING(seat_no,2,LEN(seat_no)) AS INT), seat_no";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, scheduleId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    cells.add(new SeatCell(rs.getString("seat_no"), rs.getString("seat_status")));
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return cells;
     }
 
     /** 根据班次+座位号拿 seat_id（下单时用） */
@@ -1042,12 +1107,99 @@ public class OrderDAO {
         return list;
     }
 
+    /** 批量查询资金流水，避免订单列表逐单查询（N+1）。 */
+    public Map<Integer, List<String>> findPaymentLogsByOrderIds(List<Integer> orderIds) {
+        Map<Integer, List<String>> result = new HashMap<Integer, List<String>>();
+        if (orderIds == null || orderIds.isEmpty()) return result;
+        String sql = "SELECT order_id, type, amount, direction, "
+                   + "CONVERT(varchar(16), create_time, 120) AS t, remark "
+                   + "FROM payment_log WHERE order_id IN (" + placeholders(orderIds.size()) + ") "
+                   + "ORDER BY order_id, id";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            for (int i = 0; i < orderIds.size(); i++) {
+                ps.setInt(i + 1, orderIds.get(i));
+            }
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    int orderId = rs.getInt("order_id");
+                    String dir = "in".equals(rs.getString("direction")) ? "支付" : "退回";
+                    String amt = rs.getBigDecimal("amount").toPlainString();
+                    String text = rs.getString("t") + " " + rs.getString("type") + " " + dir
+                                + " ￥" + amt + "　"
+                                + (rs.getString("remark") == null ? "" : rs.getString("remark"));
+                    List<String> list = result.get(orderId);
+                    if (list == null) {
+                        list = new ArrayList<String>();
+                        result.put(orderId, list);
+                    }
+                    list.add(text);
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return result;
+    }
+
+    /** 批量查询改签记录，避免订单列表逐单查询（N+1）。 */
+    public Map<Integer, List<String>> findChangeInfoByOrderIds(List<Integer> orderIds) {
+        Map<Integer, List<String>> result = new HashMap<Integer, List<String>>();
+        if (orderIds == null || orderIds.isEmpty()) return result;
+        String sql = "SELECT cl.order_id, cl.price_diff, "
+                   + "os.seat_no AS old_seat, ns.seat_no AS new_seat, "
+                   + "CONVERT(varchar(16), s1.depart_time, 120) AS old_time, "
+                   + "CONVERT(varchar(16), s2.depart_time, 120) AS new_time "
+                   + "FROM change_log cl "
+                   + "JOIN seat os ON os.id=cl.old_seat_id "
+                   + "JOIN seat ns ON ns.id=cl.new_seat_id "
+                   + "JOIN schedule s1 ON s1.id=cl.old_schedule_id "
+                   + "JOIN schedule s2 ON s2.id=cl.new_schedule_id "
+                   + "WHERE cl.order_id IN (" + placeholders(orderIds.size()) + ") "
+                   + "ORDER BY cl.order_id, cl.id";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            for (int i = 0; i < orderIds.size(); i++) {
+                ps.setInt(i + 1, orderIds.get(i));
+            }
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    int orderId = rs.getInt("order_id");
+                    String diff = rs.getBigDecimal("price_diff") == null ? "0"
+                                : rs.getBigDecimal("price_diff").toPlainString();
+                    String text = rs.getString("old_time") + " " + rs.getString("old_seat") + "座"
+                                + " → " + rs.getString("new_time") + " " + rs.getString("new_seat") + "座"
+                                + "（差价 ￥" + diff + "）";
+                    List<String> list = result.get(orderId);
+                    if (list == null) {
+                        list = new ArrayList<String>();
+                        result.put(orderId, list);
+                    }
+                    list.add(text);
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return result;
+    }
+
+    private String placeholders(int count) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < count; i++) {
+            if (i > 0) sb.append(',');
+            sb.append('?');
+        }
+        return sb.toString();
+    }
+
     private Order map(ResultSet rs) throws SQLException {
         Order o = new Order();
         o.setId(rs.getInt("id"));
         o.setOrderNo(rs.getString("order_no"));
         o.setScheduleId(rs.getInt("schedule_id"));
-        o.setPassengerId(rs.getInt("passenger_id"));
+        Object pid = rs.getObject("passenger_id");
+        o.setPassengerId(pid == null ? null : ((Number) pid).intValue());
         Object sid = rs.getObject("seller_id");
         o.setSellerId(sid == null ? null : ((Number) sid).intValue());
         o.setTotalAmount(rs.getBigDecimal("total_amount"));

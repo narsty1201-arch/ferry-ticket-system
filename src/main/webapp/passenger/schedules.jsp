@@ -1,17 +1,12 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
-<%@ page import="com.ferry.dao.ScheduleDAO,com.ferry.entity.Schedule,java.util.List,java.text.SimpleDateFormat" %>
+<%@ page import="com.ferry.entity.Schedule,java.util.List,java.text.SimpleDateFormat" %>
 <%
     if (session.getAttribute("loginUser") == null) { response.sendRedirect(request.getContextPath() + "/login.jsp"); return; }
-    // 下单前先触发一次超时锁释放
-    new com.ferry.dao.OrderDAO().releaseExpiredLocks();
-    List<Schedule> all = new ScheduleDAO().findAll();
-    // 只保留真正可购票的班次（售票中 + 有余票），标题数量与列表一致
-    List<Schedule> list = new java.util.ArrayList<Schedule>();
-    for (Schedule s : all) {
-        if ("售票中".equals(s.getStatus()) && s.getRemainSeats() > 0) list.add(s);
-    }
+    @SuppressWarnings("unchecked")
+    List<Schedule> list = (List<Schedule>) request.getAttribute("schedules");
+    if (list == null) list = new java.util.ArrayList<Schedule>();
     SimpleDateFormat fmt = new SimpleDateFormat("MM-dd HH:mm");
-    String msg = request.getParameter("msg");
+    String msg = (String) request.getAttribute("msg");
 %>
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -44,11 +39,11 @@
             </a>
         </div>
         <% } %>
-        <div class="big-btn ghost" onclick="location.href='home.jsp'">返回首页</div>
+        <div class="big-btn ghost" onclick="location.href='${pageContext.request.contextPath}/passenger/home'">返回首页</div>
     </div>
     <div class="tabbar">
-        <a href="${pageContext.request.contextPath}/passenger/home.jsp"><span>🏠 首页</span></a>
-        <a href="${pageContext.request.contextPath}/passenger/schedules.jsp"><span class="active">🎫 班次</span></a>
+        <a href="${pageContext.request.contextPath}/passenger/home"><span>🏠 首页</span></a>
+        <a href="${pageContext.request.contextPath}/passenger/schedules"><span class="active">🎫 班次</span></a>
         <a href="${pageContext.request.contextPath}/passenger/orders"><span>📋 订单</span></a>
         <a href="${pageContext.request.contextPath}/passenger/profile"><span>👤 我的</span></a>
     </div>

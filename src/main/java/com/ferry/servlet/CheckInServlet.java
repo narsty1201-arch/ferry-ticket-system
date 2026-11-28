@@ -2,6 +2,7 @@ package com.ferry.servlet;
 
 import com.ferry.dao.CheckInDAO;
 import com.ferry.entity.User;
+import com.ferry.util.Page;
 
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -26,7 +27,12 @@ public class CheckInServlet extends HttpServlet {
         String view = "/seller/checkin.jsp";
 
         if ("records".equals(action)) {
-            req.setAttribute("records", dao.listCheckIns());
+            int pageSize = 15;
+            int total = dao.countCheckIns();
+            int page = Page.clamp(Page.parse(req.getParameter("page"), 1), total, pageSize);
+            req.setAttribute("pageData", new Page<Map<String, Object>>(
+                    dao.listCheckIns(page, pageSize), page, pageSize, total));
+            req.setAttribute("pageUrl", "checkin?action=records&page=");
             view = "/seller/checkin_records.jsp";
         } else if ("stats".equals(action)) {
             req.setAttribute("stats", dao.checkInStats());
@@ -68,7 +74,7 @@ public class CheckInServlet extends HttpServlet {
         }
         User u = (User) s.getAttribute("loginUser");
         if (!"seller".equals(u.getRole()) && !"admin".equals(u.getRole())) {
-            resp.sendRedirect(req.getContextPath() + "/passenger/home.jsp");
+            resp.sendRedirect(req.getContextPath() + "/passenger/home");
             return false;
         }
         return true;

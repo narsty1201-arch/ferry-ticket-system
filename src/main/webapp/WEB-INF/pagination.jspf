@@ -1,0 +1,35 @@
+<%--
+  公共分页片段。使用前需在当前 JSP 中定义：
+    com.ferry.util.Page<?> pageData
+    String pageUrl   以 page= 结尾，并已带上筛选参数
+--%>
+<%
+    String __pageUrl = pageUrl;
+    int __currentPage = pageData.getPage();
+    int __totalPages = pageData.getTotalPages();
+%>
+<% if (pageData.getTotal() > 0) { %>
+<div class="pager">
+    <span class="muted">共 <%= pageData.getTotal() %> 条，第 <%= __currentPage %> / <%= __totalPages %> 页</span>
+    <% if (pageData.isHasPrev()) { %>
+        <a class="page-link" href="<%= __pageUrl %>1">首页</a>
+        <a class="page-link" href="<%= __pageUrl %><%= __currentPage - 1 %>">上一页</a>
+    <% } %>
+    <%
+        int __from = Math.max(1, __currentPage - 2);
+        int __to = Math.min(__totalPages, __currentPage + 2);
+        for (int __i = __from; __i <= __to; __i++) {
+            if (__i == __currentPage) {
+    %>
+        <span class="page-link active"><%= __i %></span>
+    <%      } else { %>
+        <a class="page-link" href="<%= __pageUrl %><%= __i %>"><%= __i %></a>
+    <%      }
+        }
+    %>
+    <% if (pageData.isHasNext()) { %>
+        <a class="page-link" href="<%= __pageUrl %><%= __currentPage + 1 %>">下一页</a>
+        <a class="page-link" href="<%= __pageUrl %><%= __totalPages %>">末页</a>
+    <% } %>
+</div>
+<% } %>

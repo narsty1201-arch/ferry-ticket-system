@@ -4,3 +4,6 @@ db.driver=com.microsoft.sqlserver.jdbc.SQLServerDriver
 db.url=jdbc:sqlserver://localhost:1433;DatabaseName=FerryDB;encrypt=true;trustServerCertificate=true;
 db.user=sa
 db.password=请填写本机数据库密码
+db.pool.maxSize=10
+db.pool.minIdle=2
+db.pool.connectionTimeoutMs=10000

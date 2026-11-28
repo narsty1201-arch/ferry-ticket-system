@@ -4,6 +4,7 @@ import com.ferry.dao.OrderDAO;
 import com.ferry.dao.ScheduleDAO;
 import com.ferry.entity.Order;
 import com.ferry.entity.Schedule;
+import com.ferry.entity.SeatCell;
 import com.ferry.entity.Ticket;
 import com.ferry.entity.User;
 import com.ferry.util.DBUtil;
@@ -50,14 +51,26 @@ public class BookServlet extends HttpServlet {
             User loginUser = (User) s.getAttribute("loginUser");
             int scheduleId = parseInt(req.getParameter("scheduleId"));
             Schedule sched = findSchedule(scheduleId);
-            List<String> seats = orderDAO.findAvailableSeats(scheduleId);
+            // 先释放超时锁座，避免选座图把已过期的“锁定”显示成不可选
+            try {
+                orderDAO.releaseExpiredLocks();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+            List<SeatCell> seatMap = orderDAO.findSeatMap(scheduleId);
+            int availableCount = 0;
+            for (SeatCell cell : seatMap) {
+                if (cell.isAvailable()) availableCount++;
+            }
             req.setAttribute("sched", sched);
-            req.setAttribute("seats", seats);
-            String view = "seller".equals(loginUser.getRole()) ? "/seller/seats.jsp" : "/passenger/seats.jsp";
+            req.setAttribute("seatMap", seatMap);
+            req.setAttribute("availableCount", availableCount);
+            String view = "passenger".equals(loginUser.getRole())
+                    ? "/passenger/seats.jsp" : "/seller/seats.jsp";
             req.getRequestDispatcher(view).forward(req, resp);
             return;
         }
-        resp.sendRedirect(req.getContextPath() + "/passenger/schedules.jsp");
+        resp.sendRedirect(req.getContextPath() + "/passenger/schedules");
     }
 
     @Override
@@ -81,7 +94,6 @@ public class BookServlet extends HttpServlet {
 
                 Order o = new Order();
                 o.setScheduleId(scheduleId);
-                o.setPassengerId(loginUser.getId());
                 if ("seller".equals(loginUser.getRole())) o.setSellerId(loginUser.getId());
                 o.setTotalAmount(sched.getPrice());
 
@@ -110,6 +122,12 @@ public class BookServlet extends HttpServlet {
                     resp.sendRedirect(req.getContextPath() + listPath(loginUser) + "?msg=" + enc(idError));
                     return;
                 }
+
+                // 方案一：passenger_id 只表示“可选的注册乘客账号”。
+                // 乘客本人购票绑定本人账号；售票员代客购票按证件匹配，未注册则存 NULL，
+                // 真实乘客身份始终以 ticket 表的姓名/证件/手机为准。
+                o.setPassengerId("passenger".equals(loginUser.getRole())
+                        ? loginUser.getId() : userDAO.findPassengerIdByIdCard(pId));
 
                 Ticket t = new Ticket();
                 t.setSeatId(seatId);
@@ -202,10 +220,11 @@ public class BookServlet extends HttpServlet {
                 return;
             }
 
-            resp.sendRedirect(req.getContextPath() + "/passenger/home.jsp");
+            resp.sendRedirect(req.getContextPath() + "/passenger/home");
         } catch (SQLException e) {
             e.printStackTrace();
-            resp.sendRedirect(req.getContextPath() + ordersPath(loginUser) + "?msg=" + enc("操作失败：" + e.getMessage()));
+            resp.sendRedirect(req.getContextPath() + ordersPath(loginUser)
+                    + "?msg=" + enc("操作失败，请稍后重试"));
         }
     }
 
@@ -222,18 +241,20 @@ public class BookServlet extends HttpServlet {
             if (o.getSellerId() != null && o.getSellerId() == u.getId()) return null;
             return "无权操作该订单：不是您经办的订单";
         }
-        if (o.getPassengerId() == u.getId()) return null;
+        if (o.getPassengerId() != null && o.getPassengerId().intValue() == u.getId()) return null;
         return "无权操作该订单：不是您的订单";
     }
 
     /** 按角色返回订单页路径：售票员走销售订单，其他走我的订单 */
     private String ordersPath(User u) {
-        return "seller".equals(u.getRole()) ? "/seller/orders" : "/passenger/orders";
+        if ("seller".equals(u.getRole())) return "/seller/orders";
+        if ("admin".equals(u.getRole())) return "/admin/orders";
+        return "/passenger/orders";
     }
 
     /** 按角色返回班次列表路径：售票员走售票台，其他走乘客班次页 */
     private String listPath(User u) {
-        return "seller".equals(u.getRole()) ? "/seller/sell" : "/passenger/schedules.jsp";
+        return "passenger".equals(u.getRole()) ? "/passenger/schedules" : "/seller/sell";
     }
 
     /** 查询班次详情（联表） */

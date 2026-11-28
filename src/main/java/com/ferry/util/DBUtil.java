@@ -1,8 +1,10 @@
 package com.ferry.util;
 
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
+
 import java.io.InputStream;
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Properties;
 
@@ -23,13 +25,28 @@ public class DBUtil {
     private static final String URL = config("db.url", "FERRY_DB_URL", DEFAULT_URL);
     private static final String USER = config("db.user", "FERRY_DB_USER", "sa");
     private static final String PWD = config("db.password", "FERRY_DB_PASSWORD", null);
+    private static final HikariDataSource DATA_SOURCE = createDataSource();
 
-    static {
+    private static HikariDataSource createDataSource() {
         try {
             Class.forName(DRIVER);
         } catch (ClassNotFoundException e) {
             throw new ExceptionInInitializerError("找不到 SQL Server JDBC 驱动：" + DRIVER);
         }
+        HikariConfig config = new HikariConfig();
+        config.setPoolName("FerryPool");
+        config.setDriverClassName(DRIVER);
+        config.setJdbcUrl(URL);
+        config.setUsername(USER);
+        config.setPassword(PWD == null ? "" : PWD);
+        config.setMaximumPoolSize(intConfig("db.pool.maxSize", "FERRY_DB_POOL_MAX", 10));
+        config.setMinimumIdle(intConfig("db.pool.minIdle", "FERRY_DB_POOL_MIN", 2));
+        config.setConnectionTimeout(longConfig("db.pool.connectionTimeoutMs",
+                "FERRY_DB_POOL_TIMEOUT", 10000L));
+        config.setIdleTimeout(600000L);
+        config.setMaxLifetime(1800000L);
+        config.setInitializationFailTimeout(-1L);
+        return new HikariDataSource(config);
     }
 
     public static Connection getConnection() throws SQLException {
@@ -37,7 +54,13 @@ public class DBUtil {
             throw new SQLException("未配置数据库密码：请复制 src/main/resources/db.properties.example "
                     + "为 db.properties 并填写，或设置 FERRY_DB_PASSWORD 环境变量。");
         }
-        return DriverManager.getConnection(URL, USER, PWD);
+        return DATA_SOURCE.getConnection();
+    }
+
+    public static void shutdown() {
+        if (DATA_SOURCE != null && !DATA_SOURCE.isClosed()) {
+            DATA_SOURCE.close();
+        }
     }
 
     public static void close(AutoCloseable... resources) {
@@ -67,5 +90,23 @@ public class DBUtil {
 
     private static boolean isBlank(String value) {
         return value == null || value.trim().isEmpty();
+    }
+
+    private static int intConfig(String key, String envKey, int defaultValue) {
+        String value = config(key, envKey, null);
+        try {
+            return value == null ? defaultValue : Integer.parseInt(value);
+        } catch (NumberFormatException e) {
+            return defaultValue;
+        }
+    }
+
+    private static long longConfig(String key, String envKey, long defaultValue) {
+        String value = config(key, envKey, null);
+        try {
+            return value == null ? defaultValue : Long.parseLong(value);
+        } catch (NumberFormatException e) {
+            return defaultValue;
+        }
     }
 }

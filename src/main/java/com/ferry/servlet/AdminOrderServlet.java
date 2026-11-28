@@ -3,6 +3,7 @@ package com.ferry.servlet;
 import com.ferry.dao.OrderDAO;
 import com.ferry.entity.Order;
 import com.ferry.entity.User;
+import com.ferry.util.Page;
 
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -11,7 +12,8 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 import java.io.IOException;
-import java.util.HashMap;
+import java.net.URLEncoder;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -31,13 +33,18 @@ public class AdminOrderServlet extends HttpServlet {
         if (status == null) status = "all";
         if (keyword == null) keyword = "";
 
-        List<Order> orders = dao.findAllForAdmin(status, keyword);
-        req.setAttribute("orders", orders);
-        Map<Integer, List<String>> paymentLogs = new HashMap<Integer, List<String>>();
-        for (Order o : orders) {
-            List<String> logs = dao.findPaymentLogs(o.getId());
-            if (!logs.isEmpty()) paymentLogs.put(o.getId(), logs);
-        }
+        int pageSize = 10;
+        int total = dao.countForAdmin(status, keyword);
+        int page = Page.clamp(Page.parse(req.getParameter("page"), 1), total, pageSize);
+        List<Order> orders = dao.findForAdmin(status, keyword, page, pageSize);
+
+        List<Integer> orderIds = new ArrayList<Integer>();
+        for (Order o : orders) orderIds.add(o.getId());
+        Map<Integer, List<String>> paymentLogs = dao.findPaymentLogsByOrderIds(orderIds);
+
+        req.setAttribute("pageData", new Page<Order>(orders, page, pageSize, total));
+        req.setAttribute("pageUrl", "orders?status=" + enc(status)
+                + "&keyword=" + enc(keyword) + "&page=");
         req.setAttribute("paymentLogs", paymentLogs);
         req.setAttribute("status", status);
         req.setAttribute("keyword", keyword);
@@ -53,5 +60,13 @@ public class AdminOrderServlet extends HttpServlet {
             return false;
         }
         return true;
+    }
+
+    private String enc(String value) {
+        try {
+            return URLEncoder.encode(value == null ? "" : value, "UTF-8");
+        } catch (Exception e) {
+            return "";
+        }
     }
 }

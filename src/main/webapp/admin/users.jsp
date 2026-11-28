@@ -1,9 +1,12 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
-<%@ page import="com.ferry.entity.User,java.util.List,java.text.SimpleDateFormat" %>
+<%@ page import="com.ferry.entity.User,com.ferry.util.Page,java.util.List,java.text.SimpleDateFormat" %>
 <%
     if (session.getAttribute("loginUser") == null) { response.sendRedirect(request.getContextPath() + "/login.jsp"); return; }
-    List<User> users = (List<User>) request.getAttribute("users");
-    if (users == null) users = new java.util.ArrayList<User>();
+    Page<User> pageData = (Page<User>) request.getAttribute("pageData");
+    if (pageData == null) pageData = Page.empty(1, 10);
+    List<User> users = pageData.getItems();
+    String pageUrl = (String) request.getAttribute("pageUrl");
+    if (pageUrl == null) pageUrl = "users?page=";
     String role = (String) request.getAttribute("role"); if (role == null) role = "all";
     String keyword = (String) request.getAttribute("keyword"); if (keyword == null) keyword = "";
     String msg = (String) request.getAttribute("msg");
@@ -33,7 +36,7 @@
 </header>
 <div class="admin-layout">
     <aside class="admin-menu">
-        <div><a href="home.jsp">数据概览</a></div>
+        <div><a href="${pageContext.request.contextPath}/admin/home">数据概览</a></div>
         <div><a href="route">航线管理</a></div>
         <div><a href="ship">船舶管理</a></div>
         <div><a href="schedule">班次管理</a></div>
@@ -97,7 +100,8 @@
             <% } %>
             </tbody>
         </table>
-        <p class="muted">说明：共 <%= users.size() %> 条记录。禁用后该账号无法登录；重置密码默认为 123456。</p>
+        <%@ include file="/WEB-INF/pagination.jspf" %>
+        <p class="muted">说明：禁用后该账号无法登录；重置密码默认为 123456。</p>
     </main>
 </div>
 </body>

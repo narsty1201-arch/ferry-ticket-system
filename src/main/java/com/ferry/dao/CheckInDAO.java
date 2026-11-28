@@ -94,7 +94,7 @@ public class CheckInDAO {
         } catch (SQLException e) {
             if (conn != null) { try { conn.rollback(); } catch (Exception ignored) {} }
             e.printStackTrace();
-            return "检票失败：" + e.getMessage();
+            return "检票失败，请稍后重试";
         } finally {
             if (conn != null) {
                 try { conn.setAutoCommit(true); } catch (Exception ignored) {}
@@ -135,8 +135,21 @@ public class CheckInDAO {
         return m;
     }
 
-    /** 检票记录列表 */
-    public List<Map<String, Object>> listCheckIns() {
+    /** 检票记录总数（分页用） */
+    public int countCheckIns() {
+        String sql = "SELECT COUNT(*) FROM check_in";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            return rs.next() ? rs.getInt(1) : 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return 0;
+        }
+    }
+
+    /** 检票记录分页列表 */
+    public List<Map<String, Object>> listCheckIns(int page, int pageSize) {
         List<Map<String, Object>> list = new ArrayList<Map<String, Object>>();
         String sql = "SELECT ci.id, ci.check_time, o.order_no, t.passenger_name, t.id_card, "
                    + "se.seat_no, r.route_name, CONVERT(varchar(16), s.depart_time, 120) AS depart_time, "
@@ -147,19 +160,22 @@ public class CheckInDAO {
                    + "JOIN route r ON r.id=s.route_id "
                    + "LEFT JOIN seat se ON se.id=t.seat_id "
                    + "LEFT JOIN [user] u ON u.id=ci.seller_id "
-                   + "ORDER BY ci.id DESC";
+                   + "ORDER BY ci.id DESC OFFSET ? ROWS FETCH NEXT ? ROWS ONLY";
         try (Connection conn = DBUtil.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
-            String[] cols = {"id","check_time","order_no","passenger_name","id_card",
-                             "seat_no","route_name","depart_time","seller_name","status"};
-            while (rs.next()) {
-                Map<String, Object> row = new HashMap<String, Object>();
-                for (String c : cols) {
-                    Object v = rs.getString(c);
-                    row.put(c, v == null ? "" : v);
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, (page - 1) * pageSize);
+            ps.setInt(2, pageSize);
+            try (ResultSet rs = ps.executeQuery()) {
+                String[] cols = {"id","check_time","order_no","passenger_name","id_card",
+                                 "seat_no","route_name","depart_time","seller_name","status"};
+                while (rs.next()) {
+                    Map<String, Object> row = new HashMap<String, Object>();
+                    for (String c : cols) {
+                        Object v = rs.getString(c);
+                        row.put(c, v == null ? "" : v);
+                    }
+                    list.add(row);
                 }
-                list.add(row);
             }
         } catch (SQLException e) {
             e.printStackTrace();

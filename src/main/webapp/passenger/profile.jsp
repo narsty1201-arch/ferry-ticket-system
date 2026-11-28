@@ -53,8 +53,8 @@
         <div class="big-btn ghost" onclick="location.href='<%= ctx %>/logout'">退出登录</div>
     </div>
     <div class="tabbar">
-        <a href="<%= ctx %>/passenger/home.jsp"><span>🏠 首页</span></a>
-        <a href="<%= ctx %>/passenger/schedules.jsp"><span>🎫 班次</span></a>
+        <a href="<%= ctx %>/passenger/home"><span>🏠 首页</span></a>
+        <a href="<%= ctx %>/passenger/schedules"><span>🎫 班次</span></a>
         <a href="<%= ctx %>/passenger/orders"><span>📋 订单</span></a>
         <a href="<%= ctx %>/passenger/profile"><span class="active">👤 我的</span></a>
     </div>

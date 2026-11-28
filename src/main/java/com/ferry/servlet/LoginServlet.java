@@ -57,11 +57,11 @@ public class LoginServlet extends HttpServlet {
 
         String ctx = req.getContextPath();
         if ("admin".equals(user.getRole())) {
-            resp.sendRedirect(ctx + "/admin/home.jsp");
+            resp.sendRedirect(ctx + "/admin/home");
         } else if ("seller".equals(user.getRole())) {
-            resp.sendRedirect(ctx + "/seller/home.jsp");
+            resp.sendRedirect(ctx + "/seller/home");
         } else {
-            resp.sendRedirect(ctx + "/passenger/home.jsp");
+            resp.sendRedirect(ctx + "/passenger/home");
         }
     }
 }

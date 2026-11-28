@@ -7,7 +7,7 @@
         return;
     }
     String role = (String) session.getAttribute("role");
-    if ("admin".equals(role)) response.sendRedirect(ctx + "/admin/home.jsp");
-    else if ("seller".equals(role)) response.sendRedirect(ctx + "/seller/home.jsp");
-    else response.sendRedirect(ctx + "/passenger/home.jsp");
+    if ("admin".equals(role)) response.sendRedirect(ctx + "/admin/home");
+    else if ("seller".equals(role)) response.sendRedirect(ctx + "/seller/home");
+    else response.sendRedirect(ctx + "/passenger/home");
 %>

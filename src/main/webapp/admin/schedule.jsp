@@ -35,7 +35,7 @@
 </header>
 <div class="admin-layout">
     <aside class="admin-menu">
-        <div><a href="home.jsp">数据概览</a></div>
+        <div><a href="${pageContext.request.contextPath}/admin/home">数据概览</a></div>
         <div><a href="route">航线管理</a></div>
         <div><a href="ship">船舶管理</a></div>
         <div class="active">班次管理</div>

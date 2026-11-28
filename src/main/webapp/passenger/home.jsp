@@ -15,12 +15,12 @@
     <div class="phone-head">⛴ 轮渡码头 · 乘客端</div>
     <div class="phone-body">
         <h2>你好，${sessionScope.userName}</h2>
-        <p class="muted">查询班次、选座购票、支付与退票改签。</p>
-        <a href="schedules.jsp"><div class="big-btn">🎫 查询班次 · 购票</div></a>
+        <p class="muted">查询班次、选座购票、支付与退票。</p>
+        <a href="${pageContext.request.contextPath}/passenger/schedules"><div class="big-btn">🎫 查询班次 · 购票</div></a>
         <a href="orders"><div class="big-btn ghost">📋 我的订单</div></a>
     </div>
     <div class="tabbar">
-        <a href="${pageContext.request.contextPath}/passenger/home.jsp"><span class="active">🏠 首页</span></a>
+        <a href="${pageContext.request.contextPath}/passenger/home"><span class="active">🏠 首页</span></a>
         <a href="${pageContext.request.contextPath}/passenger/orders"><span>📋 订单</span></a>
         <a href="${pageContext.request.contextPath}/passenger/profile"><span>👤 我的</span></a>
     </div>

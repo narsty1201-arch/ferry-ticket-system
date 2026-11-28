@@ -1,9 +1,12 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
-<%@ page import="com.ferry.entity.Order,java.util.List,java.text.SimpleDateFormat" %>
+<%@ page import="com.ferry.entity.Order,com.ferry.util.Page,java.util.List,java.text.SimpleDateFormat" %>
 <%
     if (session.getAttribute("loginUser") == null) { response.sendRedirect(request.getContextPath() + "/login.jsp"); return; }
-    List<Order> orders = (List<Order>) request.getAttribute("orders");
-    if (orders == null) orders = new java.util.ArrayList<Order>();
+    Page<Order> pageData = (Page<Order>) request.getAttribute("pageData");
+    if (pageData == null) pageData = Page.empty(1, 10);
+    List<Order> orders = pageData.getItems();
+    String pageUrl = (String) request.getAttribute("pageUrl");
+    if (pageUrl == null) pageUrl = "orders?page=";
     java.util.Map<Integer, java.util.List<String>> paymentLogs =
         (java.util.Map<Integer, java.util.List<String>>) request.getAttribute("paymentLogs");
     if (paymentLogs == null) paymentLogs = new java.util.HashMap<Integer, java.util.List<String>>();
@@ -37,7 +40,7 @@
 </header>
 <div class="admin-layout">
     <aside class="admin-menu">
-        <div><a href="home.jsp">数据概览</a></div>
+        <div><a href="${pageContext.request.contextPath}/admin/home">数据概览</a></div>
         <div><a href="route">航线管理</a></div>
         <div><a href="ship">船舶管理</a></div>
         <div><a href="schedule">班次管理</a></div>
@@ -90,7 +93,7 @@
                 </tr>
                 <tr class="detail" id="detail-<%= o.getId() %>" style="display:none">
                     <td colspan="8">
-                        班次ID：<%= o.getScheduleId() %>　乘客ID：<%= o.getPassengerId() %>　售票员ID：<%= o.getSellerId() == null ? "-" : o.getSellerId() %><br>
+                        班次ID：<%= o.getScheduleId() %>　乘客账号：<%= o.getPassengerId() == null ? "未注册乘客" : o.getPassengerId() %>　售票员ID：<%= o.getSellerId() == null ? "-" : o.getSellerId() %><br>
                         支付时间：<%= o.getPayTime() == null ? "-" : fmt.format(o.getPayTime()) %>　取消时间：<%= o.getCancelTime() == null ? "-" : fmt.format(o.getCancelTime()) %><br>
                         退款金额：<%= o.getRefundAmount() == null ? "-" : "￥" + o.getRefundAmount() %>　退款原因：<%= o.getRefundReason() == null ? "-" : o.getRefundReason() %>　退款时间：<%= o.getRefundTime() == null ? "-" : fmt.format(o.getRefundTime()) %><br>
                         预计到账：<%= o.getRefundEta() == null ? "-" : new java.text.SimpleDateFormat("yyyy-MM-dd").format(o.getRefundEta()) + " 前（3个工作日）" %><br>
@@ -102,7 +105,8 @@
             <% } %>
             </tbody>
         </table>
-        <p class="muted">共 <%= orders.size() %> 条订单。退款金额 / 原因 / 时间来自订单表留痕字段（任务书要求）。</p>
+        <%@ include file="/WEB-INF/pagination.jspf" %>
+        <p class="muted">退款金额 / 原因 / 时间来自订单表留痕字段（任务书要求）。</p>
     </main>
 </div>
 <script>

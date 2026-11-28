@@ -28,7 +28,7 @@
 <div class="desk-layout">
 <% if (isAdmin) { %>
     <aside class="admin-menu" style="width:200px">
-        <div><a href="<%= ctx %>/admin/home.jsp">数据概览</a></div>
+        <div><a href="<%= ctx %>/admin/home">数据概览</a></div>
         <div><a href="<%= ctx %>/admin/route">航线管理</a></div>
         <div><a href="<%= ctx %>/admin/ship">船舶管理</a></div>
         <div><a href="<%= ctx %>/admin/schedule">班次管理</a></div>

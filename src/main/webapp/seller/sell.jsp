@@ -22,7 +22,7 @@
 </div>
 <div class="desk-layout">
     <aside class="desk-menu">
-        <div onclick="location.href='<%= ctx %>/seller/home.jsp'">工作台</div>
+        <div onclick="location.href='<%= ctx %>/seller/home'">工作台</div>
         <div class="active">🎫 售票</div>
         <div onclick="location.href='<%= ctx %>/seller/orders'">📋 销售订单</div>
         <div onclick="location.href='<%= ctx %>/seller/checkin'">▶ 检票</div>

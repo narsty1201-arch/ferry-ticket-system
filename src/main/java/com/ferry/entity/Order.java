@@ -8,7 +8,7 @@ public class Order {
     private int id;
     private String orderNo;
     private int scheduleId;
-    private int passengerId;
+    private Integer passengerId;
     private Integer sellerId;
     private BigDecimal totalAmount;
     private String status;          // 待支付/已支付/已检票/已完成/已取消/已退票
@@ -34,8 +34,8 @@ public class Order {
     public void setOrderNo(String orderNo) { this.orderNo = orderNo; }
     public int getScheduleId() { return scheduleId; }
     public void setScheduleId(int scheduleId) { this.scheduleId = scheduleId; }
-    public int getPassengerId() { return passengerId; }
-    public void setPassengerId(int passengerId) { this.passengerId = passengerId; }
+    public Integer getPassengerId() { return passengerId; }
+    public void setPassengerId(Integer passengerId) { this.passengerId = passengerId; }
     public Integer getSellerId() { return sellerId; }
     public void setSellerId(Integer sellerId) { this.sellerId = sellerId; }
     public BigDecimal getTotalAmount() { return totalAmount; }
