@@ -147,6 +147,14 @@ public class OrderDAO {
                 ps.setBigDecimal(7, t.getPrice());
                 ps.setString(8, "QR-" + orderNo + "-" + seatId);
                 ps.executeUpdate();
+            } catch (SQLException e) {
+                // 并发下两个请求可能同时通过前置重复检查，最终由筛选唯一索引兜底。
+                // 这里只处理船票插入，避免把订单号冲突误报成重复购票。
+                if (isDuplicateTicketError(e)) {
+                    conn.rollback();
+                    return -2;
+                }
+                throw e;
             }
 
             conn.commit();
@@ -160,6 +168,11 @@ public class OrderDAO {
                 DBUtil.close(conn);
             }
         }
+    }
+
+    /** SQL Server 唯一键/唯一索引冲突；调用点仅限 ticket 插入。 */
+    private boolean isDuplicateTicketError(SQLException e) {
+        return e.getErrorCode() == 2601 || e.getErrorCode() == 2627;
     }
 
     /**

@@ -28,6 +28,7 @@ db/
   migrations/
     2026-11-27_business_fixes.sql  已有数据库的升级脚本
     2026-11-28_d_e_performance.sql D+E：可空 passenger_id、分页索引
+    2026-11-28_fix_ticket_person_unique.sql P0：退票/取消后可重新购买同一班次
 src/main/java/com/ferry/
   dao/                       数据访问与事务
   entity/                    实体
@@ -58,11 +59,16 @@ src/test/java/               集成测试
 ```text
 db/migrations/2026-11-27_business_fixes.sql
 db/migrations/2026-11-28_d_e_performance.sql
+db/migrations/2026-11-28_fix_ticket_person_unique.sql
 ```
 
 第二个脚本会把 `order.passenger_id` 改为可空，并按票面身份证把历史代客订单
 确定性关联到已注册乘客；匹配不到时保留 `NULL`，表示“未注册乘客”。真实乘客
 身份始终以 `ticket` 表的姓名、身份证、手机号为准。
+
+第三个脚本把 `ticket` 的唯一约束改为只约束“待支付/已支付/已检票”的有效票，
+使退票或取消待支付订单后可以重新购买同一班次。执行前请备份数据库；若库中已
+存在同一证件同一班次的多条有效票，脚本会中止并提示人工处理，不会自动删除数据。
 
 ## 2. 配置数据库连接
 

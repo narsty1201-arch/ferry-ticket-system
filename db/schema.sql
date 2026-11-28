@@ -152,7 +152,6 @@ CREATE TABLE dbo.ticket (
     qr_code         VARCHAR(50)   NULL,
     create_time     DATETIME      NOT NULL CONSTRAINT DF_ticket_create DEFAULT (GETDATE()),
     CONSTRAINT PK_ticket PRIMARY KEY (id),
-    CONSTRAINT UQ_ticket_person_sched UNIQUE (id_card, schedule_id),
     CONSTRAINT CK_ticket_status CHECK (status IN (N'待支付',N'已支付',N'已检票',N'已退票',N'已取消')),
     CONSTRAINT CK_ticket_idcard CHECK (id_card LIKE '[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9Xx]'),
     CONSTRAINT CK_ticket_phone CHECK (passenger_phone LIKE '[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'),
@@ -160,6 +159,12 @@ CREATE TABLE dbo.ticket (
     CONSTRAINT FK_ticket_sched FOREIGN KEY (schedule_id) REFERENCES dbo.schedule(id),
     CONSTRAINT FK_ticket_seat FOREIGN KEY (seat_id) REFERENCES dbo.seat(id)
 );
+GO
+
+-- 同一证件在同一班次只能持有一张有效票；退票/取消后允许重新购买。
+CREATE UNIQUE INDEX UX_ticket_active_person_sched
+    ON dbo.ticket(id_card, schedule_id)
+    WHERE status IN (N'待支付', N'已支付', N'已检票');
 GO
 
 CREATE TABLE dbo.check_in (
