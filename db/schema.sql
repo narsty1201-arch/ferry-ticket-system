@@ -234,6 +234,17 @@ CREATE INDEX IX_order_status_id ON dbo.[order](status, id);
 CREATE INDEX IX_schedule_route ON dbo.schedule(route_id);
 CREATE INDEX IX_user_role_id ON dbo.[user](role, id);
 CREATE INDEX IX_user_role_idcard ON dbo.[user](role, id_card);
+CREATE INDEX IX_order_create_time ON dbo.[order](create_time, status, seller_id)
+    INCLUDE (schedule_id, total_amount, refund_amount);
+CREATE INDEX IX_order_refund_time ON dbo.[order](refund_time)
+    INCLUDE (status, schedule_id, total_amount, refund_amount)
+    WHERE refund_time IS NOT NULL;
+CREATE INDEX IX_schedule_depart_status ON dbo.schedule(depart_time, route_id)
+    INCLUDE (total_seats, sold_seats, status)
+    WHERE is_deleted = 0;
+CREATE INDEX IX_check_seller_time ON dbo.check_in(seller_id, check_time, status);
+CREATE INDEX IX_ticket_status_schedule ON dbo.ticket(status, schedule_id)
+    INCLUDE (order_id);
 GO
 
 CREATE VIEW dbo.v_seller_performance AS

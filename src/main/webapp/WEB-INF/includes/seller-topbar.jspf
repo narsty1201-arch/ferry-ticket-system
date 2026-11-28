@@ -11,6 +11,8 @@
         __topTitle = "代客选座";
     } else if (__topUri.endsWith("/seller/orders")) {
         __topTitle = "销售订单";
+    } else if (__topUri.endsWith("/seller/performance")) {
+        __topTitle = "我的业绩";
     } else if (__topUri.endsWith("/seller/checkin")) {
         if ("records".equals(__topAction)) {
             __topTitle = "检票记录";

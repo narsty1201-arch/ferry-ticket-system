@@ -7,6 +7,7 @@
     boolean __home = __sideUri.endsWith("/seller/home");
     boolean __sell = __sideUri.endsWith("/seller/sell") || __sideUri.endsWith("/book");
     boolean __orders = __sideUri.endsWith("/seller/orders");
+    boolean __performance = __sideUri.endsWith("/seller/performance");
     boolean __checkin = __sideUri.endsWith("/seller/checkin") && !"records".equals(__sideAction) && !"stats".equals(__sideAction);
     boolean __records = __sideUri.endsWith("/seller/checkin") && "records".equals(__sideAction);
     boolean __stats = __sideUri.endsWith("/seller/checkin") && "stats".equals(__sideAction);
@@ -20,6 +21,9 @@
     </a>
     <a class="app-nav-item <%= __orders ? "active" : "" %>" href="<%= __sideCtx %>/seller/orders">
         <span class="ico ico-orders" aria-hidden="true"></span><span>销售订单</span>
+    </a>
+    <a class="app-nav-item <%= __performance ? "active" : "" %>" href="<%= __sideCtx %>/seller/performance">
+        <span class="ico ico-chart" aria-hidden="true"></span><span>我的业绩</span>
     </a>
     <a class="app-nav-item <%= __checkin ? "active" : "" %>" href="<%= __sideCtx %>/seller/checkin">
         <span class="ico ico-check" aria-hidden="true"></span><span>检票</span>

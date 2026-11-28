@@ -29,6 +29,11 @@
                 <b>查看销售订单</b>
                 <span>处理待支付订单、退票与可改签班次。</span>
             </a>
+            <a class="action-card" href="${pageContext.request.contextPath}/seller/performance">
+                <span class="ico ico-chart"></span>
+                <b>查看我的业绩</b>
+                <span>按下单与检票时间查看本人订单、净销售额、退款和检票量。</span>
+            </a>
             <a class="action-card" href="${pageContext.request.contextPath}/seller/checkin">
                 <span class="ico ico-check"></span>
                 <b>进入检票台</b>
