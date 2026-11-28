@@ -114,6 +114,20 @@ CREATE TABLE dbo.[user] (
 );
 GO
 
+CREATE TABLE dbo.user_admin_log (
+    id              INT IDENTITY(1,1) NOT NULL,
+    operator_id     INT           NOT NULL,
+    target_user_id  INT           NOT NULL,
+    action          NVARCHAR(20)  NOT NULL,
+    detail          NVARCHAR(500) NULL,
+    create_time     DATETIME      NOT NULL CONSTRAINT DF_user_admin_log_time DEFAULT (GETDATE()),
+    CONSTRAINT PK_user_admin_log PRIMARY KEY (id),
+    CONSTRAINT CK_user_admin_action CHECK (action IN (N'新增',N'编辑',N'重置密码',N'启用',N'禁用')),
+    CONSTRAINT FK_user_admin_operator FOREIGN KEY (operator_id) REFERENCES dbo.[user](id),
+    CONSTRAINT FK_user_admin_target FOREIGN KEY (target_user_id) REFERENCES dbo.[user](id)
+);
+GO
+
 CREATE TABLE dbo.[order] (
     id              INT IDENTITY(1,1) NOT NULL,
     order_no        VARCHAR(30)   NOT NULL,
@@ -245,6 +259,7 @@ CREATE INDEX IX_schedule_depart_status ON dbo.schedule(depart_time, route_id)
 CREATE INDEX IX_check_seller_time ON dbo.check_in(seller_id, check_time, status);
 CREATE INDEX IX_ticket_status_schedule ON dbo.ticket(status, schedule_id)
     INCLUDE (order_id);
+CREATE INDEX IX_user_admin_log_time ON dbo.user_admin_log(create_time, id);
 GO
 
 CREATE VIEW dbo.v_seller_performance AS
