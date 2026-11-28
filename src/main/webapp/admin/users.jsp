@@ -16,36 +16,17 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>用户管理 - 轮渡码头</title>
     <link rel="stylesheet" href="${pageContext.request.contextPath}/css/style.css">
-    <style>
-        .form-row { display:flex; gap:12px; flex-wrap:wrap; align-items:end; margin-bottom:16px; }
-        .form-row label { font-size:13px; display:block; color:#374151; }
-        .form-row input,.form-row select { padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; }
-        .btn-sm { padding:6px 12px; border:0; border-radius:6px; cursor:pointer; font-size:13px; }
-        .btn-add { background:#2563eb; color:#fff; }
-        .btn-del { background:#dc2626; color:#fff; }
-        .tag { padding:2px 8px; border-radius:10px; font-size:12px; }
-        .tag-ok { background:#dcfce7; color:#15803d; }
-        .tag-no { background:#fee2e2; color:#b91c1c; }
-    </style>
 </head>
 <body class="admin">
-<header class="admin-head">🚢 码头管理系统 · 用户管理　管理员：${sessionScope.userName}
-    <a class="logout" href="${pageContext.request.contextPath}/logout">退出</a>
-</header>
+<%@ include file="/WEB-INF/includes/admin-topbar.jspf" %>
 <div class="admin-layout">
-    <aside class="admin-menu">
-        <div><a href="${pageContext.request.contextPath}/admin/home">数据概览</a></div>
-        <div><a href="route">航线管理</a></div>
-        <div><a href="ship">船舶管理</a></div>
-        <div><a href="schedule">班次管理</a></div>
-        <div class="active">👥 用户管理</div>
-        <div><a href="orders">📋 订单管理</a></div>
-        <div><a href="stats">📊 统计报表</a></div>
-    </aside>
+    <%@ include file="/WEB-INF/includes/admin-nav.jspf" %>
     <main class="admin-main">
-        <h2>👥 用户管理</h2>
+        <div class="page-kicker"><span class="ico ico-users ico-sm"></span>账号管理</div>
+        <h2>用户管理</h2>
         <% if (msg != null && !msg.isEmpty()) { %><p class="msg ok"><%= msg %></p><% } %>
 
         <form class="form-row" method="get" action="users">

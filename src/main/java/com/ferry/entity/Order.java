@@ -19,6 +19,7 @@ public class Order {
     private String refundReason;
     private Timestamp refundTime;
     private Timestamp refundEta;    // 预计退款到账时间（退票后3个工作日）
+    private int lockRemainSeconds;  // 待支付订单的锁座剩余秒数，供页面倒计时
     // 联表显示用
     private String routeName;
     private String shipName;
@@ -56,6 +57,8 @@ public class Order {
     public void setRefundTime(Timestamp refundTime) { this.refundTime = refundTime; }
     public Timestamp getRefundEta() { return refundEta; }
     public void setRefundEta(Timestamp refundEta) { this.refundEta = refundEta; }
+    public int getLockRemainSeconds() { return lockRemainSeconds; }
+    public void setLockRemainSeconds(int lockRemainSeconds) { this.lockRemainSeconds = lockRemainSeconds; }
     public String getRouteName() { return routeName; }
     public void setRouteName(String routeName) { this.routeName = routeName; }
     public String getShipName() { return shipName; }

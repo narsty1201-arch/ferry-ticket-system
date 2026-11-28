@@ -1,0 +1,32 @@
+<%@ page pageEncoding="UTF-8" %>
+<%
+    String __sideCtx = request.getContextPath();
+    String __sideUri = request.getRequestURI();
+    String __sideAction = request.getParameter("action");
+    boolean __home = __sideUri.endsWith("/seller/home");
+    boolean __sell = __sideUri.endsWith("/seller/sell") || __sideUri.endsWith("/book");
+    boolean __orders = __sideUri.endsWith("/seller/orders");
+    boolean __checkin = __sideUri.endsWith("/seller/checkin") && !"records".equals(__sideAction) && !"stats".equals(__sideAction);
+    boolean __records = __sideUri.endsWith("/seller/checkin") && "records".equals(__sideAction);
+    boolean __stats = __sideUri.endsWith("/seller/checkin") && "stats".equals(__sideAction);
+%>
+<aside class="app-sidebar" aria-label="售票员端主导航">
+    <a class="app-nav-item <%= __home ? "active" : "" %>" href="<%= __sideCtx %>/seller/home">
+        <span class="ico ico-grid" aria-hidden="true"></span><span>工作台</span>
+    </a>
+    <a class="app-nav-item <%= __sell ? "active" : "" %>" href="<%= __sideCtx %>/seller/sell">
+        <span class="ico ico-sale" aria-hidden="true"></span><span>售票</span>
+    </a>
+    <a class="app-nav-item <%= __orders ? "active" : "" %>" href="<%= __sideCtx %>/seller/orders">
+        <span class="ico ico-orders" aria-hidden="true"></span><span>销售订单</span>
+    </a>
+    <a class="app-nav-item <%= __checkin ? "active" : "" %>" href="<%= __sideCtx %>/seller/checkin">
+        <span class="ico ico-check" aria-hidden="true"></span><span>检票</span>
+    </a>
+    <a class="app-nav-item <%= __records ? "active" : "" %>" href="<%= __sideCtx %>/seller/checkin?action=records">
+        <span class="ico ico-clipboard" aria-hidden="true"></span><span>检票记录</span>
+    </a>
+    <a class="app-nav-item <%= __stats ? "active" : "" %>" href="<%= __sideCtx %>/seller/checkin?action=stats">
+        <span class="ico ico-chart" aria-hidden="true"></span><span>检票统计</span>
+    </a>
+</aside>

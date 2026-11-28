@@ -175,8 +175,8 @@ public class OrderDAO {
             // 找出锁定超时的座位对应的订单
             String findSql = "SELECT o.id, t.seat_id FROM ticket t JOIN [order] o ON o.id=t.order_id "
                            + "JOIN seat s ON s.id=t.seat_id "
-                           + "WHERE t.status=N'待支付' AND s.seat_status=N'锁定' "
-                           + "AND s.lock_time < DATEADD(MINUTE,-5,GETDATE())";
+                           + "WHERE t.status=N'待支付' AND s.seat_status<>N'已售' "
+                           + "AND (s.lock_time IS NULL OR s.lock_time < DATEADD(MINUTE,-5,GETDATE()))";
             List<Integer> expiredOrders = new ArrayList<>();
             List<Integer> expiredSeats = new ArrayList<>();
             try (PreparedStatement ps = conn.prepareStatement(findSql);
@@ -209,6 +209,94 @@ public class OrderDAO {
             }
             conn.commit();
             return expiredOrders.size();
+        } catch (SQLException e) {
+            if (conn != null) conn.rollback();
+            throw e;
+        } finally {
+            if (conn != null) {
+                conn.setAutoCommit(true);
+                DBUtil.close(conn);
+            }
+        }
+    }
+
+    /**
+     * 取消待支付订单：订单/船票→已取消，座位→可售。
+     * 与支付、超时释放共用行锁，先到先得。
+     *
+     * @return null 表示成功；否则返回不能取消的原因
+     */
+    public String cancelPending(int orderId) throws SQLException {
+        Connection conn = null;
+        try {
+            conn = DBUtil.getConnection();
+            conn.setAutoCommit(false);
+
+            String orderStatus;
+            String ticketStatus;
+            String seatStatus;
+            int seatId;
+            String sql = "SELECT o.status AS order_status, t.status AS ticket_status, "
+                       + "t.seat_id, s.seat_status "
+                       + "FROM [order] o WITH (UPDLOCK, HOLDLOCK) "
+                       + "JOIN ticket t WITH (UPDLOCK, HOLDLOCK) ON t.order_id=o.id "
+                       + "JOIN seat s WITH (UPDLOCK, HOLDLOCK) ON s.id=t.seat_id "
+                       + "WHERE o.id=?";
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setInt(1, orderId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (!rs.next()) {
+                        conn.rollback();
+                        return "订单不存在或数据异常";
+                    }
+                    orderStatus = rs.getString("order_status");
+                    ticketStatus = rs.getString("ticket_status");
+                    seatStatus = rs.getString("seat_status");
+                    seatId = rs.getInt("seat_id");
+                }
+            }
+            if (!"待支付".equals(orderStatus)) {
+                conn.rollback();
+                return "该订单已支付或已取消，不能取消";
+            }
+            if (!"待支付".equals(ticketStatus)) {
+                conn.rollback();
+                return "船票状态已变化，不能取消";
+            }
+            if ("已售".equals(seatStatus)) {
+                conn.rollback();
+                return "座位状态异常，不能取消";
+            }
+            if ("锁定".equals(seatStatus)) {
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "UPDATE seat SET seat_status=N'可售', lock_time=NULL "
+                      + "WHERE id=? AND seat_status=N'锁定'")) {
+                    ps.setInt(1, seatId);
+                    if (ps.executeUpdate() != 1) {
+                        conn.rollback();
+                        return "座位状态已变化，取消失败";
+                    }
+                }
+            }
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "UPDATE ticket SET status=N'已取消' WHERE order_id=? AND status=N'待支付'")) {
+                ps.setInt(1, orderId);
+                if (ps.executeUpdate() != 1) {
+                    conn.rollback();
+                    return "船票状态已变化，取消失败";
+                }
+            }
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "UPDATE [order] SET status=N'已取消', cancel_time=GETDATE() "
+                  + "WHERE id=? AND status=N'待支付'")) {
+                ps.setInt(1, orderId);
+                if (ps.executeUpdate() != 1) {
+                    conn.rollback();
+                    return "订单状态已变化，取消失败";
+                }
+            }
+            conn.commit();
+            return null;
         } catch (SQLException e) {
             if (conn != null) conn.rollback();
             throw e;
@@ -281,10 +369,12 @@ public class OrderDAO {
                 return "班次余票不足";
             }
 
-            // 锁船票与座位，确认座位仍是本订单的“锁定”状态
+            // 锁船票与座位，确认座位仍是本订单的“锁定”状态且未超过5分钟
             int seatId;
             try (PreparedStatement ps = conn.prepareStatement(
-                    "SELECT t.seat_id, t.status AS ticket_status, s.seat_status "
+                    "SELECT t.seat_id, t.status AS ticket_status, s.seat_status, "
+                  + "CASE WHEN s.lock_time IS NULL OR s.lock_time < DATEADD(MINUTE,-5,GETDATE()) "
+                  + "THEN 1 ELSE 0 END AS lock_expired "
                   + "FROM ticket t WITH (UPDLOCK, HOLDLOCK) "
                   + "JOIN seat s WITH (UPDLOCK, HOLDLOCK) ON s.id=t.seat_id "
                   + "WHERE t.order_id=?")) {
@@ -301,6 +391,10 @@ public class OrderDAO {
                     if (!"锁定".equals(rs.getString("seat_status"))) {
                         conn.rollback();
                         return "座位已释放，请重新下单";
+                    }
+                    if (rs.getInt("lock_expired") == 1) {
+                        conn.rollback();
+                        return "支付超时，座位已释放，请重新选座";
                     }
                     seatId = rs.getInt("seat_id");
                 }
@@ -846,7 +940,10 @@ public class OrderDAO {
     /** 乘客查询自己的订单（联表带出班次信息） */
     public List<Order> findByPassenger(int passengerId) {
         List<Order> list = new ArrayList<>();
-        String sql = "SELECT o.*, s.depart_time, r.route_name, sh.ship_name, se.seat_no, t.passenger_name "
+        String sql = "SELECT o.*, s.depart_time, r.route_name, sh.ship_name, se.seat_no, t.passenger_name, "
+                   + "CASE WHEN o.status=N'待支付' AND se.lock_time IS NOT NULL "
+                   + "THEN DATEDIFF(SECOND, GETDATE(), DATEADD(MINUTE,5,se.lock_time)) "
+                   + "ELSE 0 END AS lock_remain_seconds "
                    + "FROM [order] o "
                    + "JOIN schedule s ON s.id=o.schedule_id "
                    + "JOIN route r ON r.id=s.route_id "
@@ -869,7 +966,10 @@ public class OrderDAO {
     /** 售票员：查询本人经办的订单（seller_id = 当前登录用户） */
     public List<Order> findBySeller(int sellerId) {
         List<Order> list = new ArrayList<Order>();
-        String sql = "SELECT o.*, s.depart_time, r.route_name, sh.ship_name, se.seat_no, t.passenger_name "
+        String sql = "SELECT o.*, s.depart_time, r.route_name, sh.ship_name, se.seat_no, t.passenger_name, "
+                   + "CASE WHEN o.status=N'待支付' AND se.lock_time IS NOT NULL "
+                   + "THEN DATEDIFF(SECOND, GETDATE(), DATEADD(MINUTE,5,se.lock_time)) "
+                   + "ELSE 0 END AS lock_remain_seconds "
                    + "FROM [order] o "
                    + "JOIN schedule s ON s.id=o.schedule_id "
                    + "JOIN route r ON r.id=s.route_id "
@@ -1216,6 +1316,7 @@ public class OrderDAO {
         try { o.setShipName(rs.getString("ship_name")); } catch (Exception ignored) { }
         try { o.setSeatNo(rs.getString("seat_no")); } catch (Exception ignored) { }
         try { o.setPassengerName(rs.getString("passenger_name")); } catch (Exception ignored) { }
+        try { o.setLockRemainSeconds(Math.max(0, rs.getInt("lock_remain_seconds"))); } catch (Exception ignored) { }
         return o;
     }
 }

@@ -156,6 +156,19 @@ public class BookServlet extends HttpServlet {
                 return;
             }
 
+            if ("cancel".equals(action)) {
+                int orderId = parseInt(req.getParameter("orderId"));
+                String deny = checkOwner(orderId, loginUser);
+                if (deny != null) {
+                    resp.sendRedirect(req.getContextPath() + ordersPath(loginUser) + "?msg=" + enc(deny));
+                    return;
+                }
+                String cancelError = orderDAO.cancelPending(orderId);
+                String cancelMsg = cancelError == null ? "订单已取消，座位已释放" : "取消失败：" + cancelError;
+                resp.sendRedirect(req.getContextPath() + ordersPath(loginUser) + "?msg=" + enc(cancelMsg));
+                return;
+            }
+
             if ("pay".equals(action)) {
                 int orderId = parseInt(req.getParameter("orderId"));
                 String deny = checkOwner(orderId, loginUser);

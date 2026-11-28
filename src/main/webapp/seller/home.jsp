@@ -11,30 +11,34 @@
     <link rel="stylesheet" href="${pageContext.request.contextPath}/css/style.css">
 </head>
 <body class="desk">
-<div class="desk-head">码头售票系统 · 工作台　售票员：${sessionScope.userName}
-    <a class="logout" href="${pageContext.request.contextPath}/logout">退出</a>
-</div>
+<%@ include file="/WEB-INF/includes/seller-topbar.jspf" %>
 <div class="desk-layout">
-    <aside class="desk-menu">
-        <div class="active">工作台</div>
-        <div onclick="location.href='${pageContext.request.contextPath}/seller/sell'">🎫 售票</div>
-        <div onclick="location.href='${pageContext.request.contextPath}/seller/orders'">📋 销售订单</div>
-        <div onclick="location.href='${pageContext.request.contextPath}/seller/checkin'">▶ 检票</div>
-        <div onclick="location.href='${pageContext.request.contextPath}/seller/checkin?action=records'">检票记录</div>
-        <div onclick="location.href='${pageContext.request.contextPath}/seller/checkin?action=stats'">检票统计</div>
-    </aside>
+    <%@ include file="/WEB-INF/includes/seller-nav.jspf" %>
     <main class="desk-main">
+        <div class="page-kicker"><span class="ico ico-grid ico-sm"></span>售票员工作台</div>
         <h2>售票员工作台</h2>
         <p class="muted">代客选座购票、查看经办订单，以及为已支付乘客检票登船。</p>
-        <div style="margin-top:20px">
-            <a class="btn-primary" style="display:inline-block;padding:12px 24px;text-decoration:none;margin-right:12px" href="${pageContext.request.contextPath}/seller/sell">🎫 进入售票台</a>
-            <a class="btn-primary" style="display:inline-block;padding:12px 24px;text-decoration:none;margin-right:12px" href="${pageContext.request.contextPath}/seller/orders">📋 查看销售订单</a>
-            <a class="btn-primary" style="display:inline-block;padding:12px 24px;text-decoration:none" href="${pageContext.request.contextPath}/seller/checkin">🎯 进入检票台</a>
+        <div class="card-grid">
+            <a class="action-card" href="${pageContext.request.contextPath}/seller/sell">
+                <span class="ico ico-sale"></span>
+                <b>进入售票台</b>
+                <span>选择班次、座位并录入乘客信息，完成锁座下单。</span>
+            </a>
+            <a class="action-card" href="${pageContext.request.contextPath}/seller/orders">
+                <span class="ico ico-orders"></span>
+                <b>查看销售订单</b>
+                <span>处理待支付订单、退票与可改签班次。</span>
+            </a>
+            <a class="action-card" href="${pageContext.request.contextPath}/seller/checkin">
+                <span class="ico ico-check"></span>
+                <b>进入检票台</b>
+                <span>输入订单号，为已支付且未退票的乘客检票。</span>
+            </a>
         </div>
-        <div class="kpi-row" style="margin-top:26px">
-            <div class="card kpi"><div class="muted">售票流程</div><div style="font-size:14px;margin-top:6px">选班次 → 选座 → 填乘客 → 锁座 → 支付</div></div>
-            <div class="card kpi"><div class="muted">检票流程</div><div style="font-size:14px;margin-top:6px">输入订单号 → 校验 → 检票登船</div></div>
-            <div class="card kpi"><div class="muted">校验规则</div><div style="font-size:14px;margin-top:6px">已支付 / 未退票 / 不重复</div></div>
+        <div class="kpi-row">
+            <div class="card kpi"><span>售票流程</span><div style="font-size:13px;margin-top:7px;color:var(--text-2)">选班次 → 选座 → 填乘客 → 锁座 → 支付</div></div>
+            <div class="card kpi"><span>检票流程</span><div style="font-size:13px;margin-top:7px;color:var(--text-2)">输入订单号 → 校验 → 检票登船</div></div>
+            <div class="card kpi"><span>校验规则</span><div style="font-size:13px;margin-top:7px;color:var(--text-2)">已支付 / 未退票 / 不重复</div></div>
         </div>
     </main>
 </div>

@@ -1,0 +1,44 @@
+<%@ page pageEncoding="UTF-8" %>
+<%
+    String __sideCtx = request.getContextPath();
+    String __sideUri = request.getRequestURI();
+    String __sideAction = request.getParameter("action");
+    boolean __home = __sideUri.endsWith("/admin/home");
+    boolean __route = __sideUri.endsWith("/admin/route");
+    boolean __ship = __sideUri.endsWith("/admin/ship");
+    boolean __schedule = __sideUri.endsWith("/admin/schedule");
+    boolean __users = __sideUri.endsWith("/admin/users");
+    boolean __orders = __sideUri.endsWith("/admin/orders");
+    boolean __stats = __sideUri.endsWith("/admin/stats");
+    boolean __checkinRecords = __sideUri.endsWith("/admin/checkin") && !"stats".equals(__sideAction);
+    boolean __checkinStats = __sideUri.endsWith("/admin/checkin") && "stats".equals(__sideAction);
+%>
+<aside class="app-sidebar" aria-label="管理后台主导航">
+    <a class="app-nav-item <%= __home ? "active" : "" %>" href="<%= __sideCtx %>/admin/home">
+        <span class="ico ico-grid" aria-hidden="true"></span><span>数据概览</span>
+    </a>
+    <a class="app-nav-item <%= __route ? "active" : "" %>" href="<%= __sideCtx %>/admin/route">
+        <span class="ico ico-route" aria-hidden="true"></span><span>航线管理</span>
+    </a>
+    <a class="app-nav-item <%= __ship ? "active" : "" %>" href="<%= __sideCtx %>/admin/ship">
+        <span class="ico ico-ship" aria-hidden="true"></span><span>船舶管理</span>
+    </a>
+    <a class="app-nav-item <%= __schedule ? "active" : "" %>" href="<%= __sideCtx %>/admin/schedule">
+        <span class="ico ico-calendar" aria-hidden="true"></span><span>班次管理</span>
+    </a>
+    <a class="app-nav-item <%= __users ? "active" : "" %>" href="<%= __sideCtx %>/admin/users">
+        <span class="ico ico-users" aria-hidden="true"></span><span>用户管理</span>
+    </a>
+    <a class="app-nav-item <%= __orders ? "active" : "" %>" href="<%= __sideCtx %>/admin/orders">
+        <span class="ico ico-orders" aria-hidden="true"></span><span>订单管理</span>
+    </a>
+    <a class="app-nav-item <%= __stats ? "active" : "" %>" href="<%= __sideCtx %>/admin/stats">
+        <span class="ico ico-chart" aria-hidden="true"></span><span>统计报表</span>
+    </a>
+    <a class="app-nav-item <%= __checkinRecords ? "active" : "" %>" href="<%= __sideCtx %>/admin/checkin?action=records">
+        <span class="ico ico-clipboard" aria-hidden="true"></span><span>检票记录</span>
+    </a>
+    <a class="app-nav-item <%= __checkinStats ? "active" : "" %>" href="<%= __sideCtx %>/admin/checkin?action=stats">
+        <span class="ico ico-chart" aria-hidden="true"></span><span>检票统计</span>
+    </a>
+</aside>

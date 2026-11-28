@@ -12,18 +12,38 @@
 </head>
 <body class="mobile">
 <div class="phone">
-    <div class="phone-head">⛴ 轮渡码头 · 乘客端</div>
+    <div class="phone-head"><span class="ico ico-ferry"></span>轮渡码头 · 乘客端</div>
     <div class="phone-body">
-        <h2>你好，${sessionScope.userName}</h2>
-        <p class="muted">查询班次、选座购票、支付与退票。</p>
-        <a href="${pageContext.request.contextPath}/passenger/schedules"><div class="big-btn">🎫 查询班次 · 购票</div></a>
-        <a href="orders"><div class="big-btn ghost">📋 我的订单</div></a>
+        <section class="home-hero">
+            <h2>你好，${sessionScope.userName}</h2>
+            <p>查询班次、选择座位，轻松开启水上行程。</p>
+            <img src="${pageContext.request.contextPath}/images/ferry-header.png" alt="">
+        </section>
+        <a href="${pageContext.request.contextPath}/passenger/schedules"><div class="big-btn"><span class="ico ico-search"></span>查询班次 · 购票</div></a>
+        <div class="quick-grid">
+            <a class="quick-tile" href="${pageContext.request.contextPath}/passenger/schedules">
+                <span class="ico ico-ferry"></span>
+                <b>选择班次</b>
+                <span>查看今日可售航线</span>
+            </a>
+            <a class="quick-tile" href="${pageContext.request.contextPath}/passenger/orders">
+                <span class="ico ico-orders"></span>
+                <b>我的订单</b>
+                <span>支付、退票与改签</span>
+            </a>
+            <a class="quick-tile" href="${pageContext.request.contextPath}/passenger/profile">
+                <span class="ico ico-user"></span>
+                <b>个人中心</b>
+                <span>核对实名购票资料</span>
+            </a>
+            <a class="quick-tile" href="${pageContext.request.contextPath}/passenger/orders">
+                <span class="ico ico-ticket"></span>
+                <b>待支付订单</b>
+                <span>5 分钟内完成支付</span>
+            </a>
+        </div>
     </div>
-    <div class="tabbar">
-        <a href="${pageContext.request.contextPath}/passenger/home"><span class="active">🏠 首页</span></a>
-        <a href="${pageContext.request.contextPath}/passenger/orders"><span>📋 订单</span></a>
-        <a href="${pageContext.request.contextPath}/passenger/profile"><span>👤 我的</span></a>
-    </div>
+    <%@ include file="/WEB-INF/includes/passenger-tabbar.jspf" %>
 </div>
 </body>
 </html>

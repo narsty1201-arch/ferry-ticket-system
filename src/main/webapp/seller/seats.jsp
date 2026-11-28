@@ -17,51 +17,46 @@
         row.add(cell);
     }
     SimpleDateFormat fmt = new SimpleDateFormat("yyyy-MM-dd HH:mm");
+    SimpleDateFormat dayFmt = new SimpleDateFormat("yyyy-MM-dd");
+    SimpleDateFormat timeFmt = new SimpleDateFormat("HH:mm");
+    String departText = dayFmt.format(s.getDepartTime()).equals(dayFmt.format(new java.util.Date()))
+            ? "今天 " + timeFmt.format(s.getDepartTime())
+            : fmt.format(s.getDepartTime());
     String ctx = request.getContextPath();
 %>
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>代客选座 - 轮渡码头</title>
     <link rel="stylesheet" href="${pageContext.request.contextPath}/css/style.css">
-    <style>
-        .form-line { margin:10px 0; font-size:14px; }
-        .form-line label { display:block; color:#374151; margin-bottom:4px; }
-        .form-line input { width:100%; max-width:420px; padding:10px; border:1px solid #d1d5db; border-radius:8px; font-size:15px; }
-    </style>
 </head>
 <body class="desk">
-<div class="desk-head">码头售票系统 · 代客选座　售票员：${sessionScope.userName}
-    <a class="logout" href="<%= ctx %>/logout">退出</a>
-</div>
+<%@ include file="/WEB-INF/includes/seller-topbar.jspf" %>
 <div class="desk-layout">
-    <aside class="desk-menu">
-        <div onclick="location.href='<%= ctx %>/seller/home'">工作台</div>
-        <div class="active">🎫 售票</div>
-        <div onclick="location.href='<%= ctx %>/seller/orders'">📋 销售订单</div>
-        <div onclick="location.href='<%= ctx %>/seller/checkin'">▶ 检票</div>
-        <div onclick="location.href='<%= ctx %>/seller/checkin?action=records'">检票记录</div>
-        <div onclick="location.href='<%= ctx %>/seller/checkin?action=stats'">检票统计</div>
-    </aside>
+    <%@ include file="/WEB-INF/includes/seller-nav.jspf" %>
     <main class="desk-main">
-        <h2>🪑 代客选座 · <%= s.getRouteName() %></h2>
+        <div class="page-kicker"><span class="ico ico-sale ico-sm"></span>代客售票</div>
+        <h2>代客选座 · <%= s.getRouteName() %></h2>
         <div class="seller-seat-layout">
             <section class="seller-seat-map">
-                <div class="seat-hero">
-                    <img src="<%= ctx %>/images/ferry-header.png" alt="轮渡码头插画">
-                </div>
-                <div class="card">
-                    <div><b><%= s.getStartPort() %> → <%= s.getEndPort() %></b>　<%= s.getShipName() %></div>
-                    <div class="muted">发船 <%= fmt.format(s.getDepartTime()) %>　票价 ￥<%= s.getPrice() %></div>
+                <div class="trip-banner">
+                    <div class="trip-main">
+                        <span><%= s.getStartPort() %></span><span class="port-arrow">→</span><span><%= s.getEndPort() %></span>
+                        <span class="dot">·</span><span class="ship-name"><%= s.getShipName() %></span>
+                    </div>
+                    <div class="trip-meta">
+                        <span><%= departText %></span><span class="dot">·</span><span>票价 <b>￥<%= s.getPrice() %></b></span>
+                    </div>
                 </div>
 
                 <% String msg = (String) request.getAttribute("msg"); if (msg != null && !msg.isEmpty()) { %>
-                <p class="msg err"><%= msg %></p><% } %>
+                <p class="msg err"><span class="ico ico-info ico-sm"></span><span><%= msg %></span></p><% } %>
 
                 <div class="seat-head">
                     <h3>选择座位</h3>
-                    <span class="seat-count">余票 <b><%= availableCount %></b> / <%= seatMap.size() %></span>
+                    <span class="seat-count">余票 <b><%= availableCount %></b>/<%= seatMap.size() %></span>
                 </div>
 
                 <% if (seatMap.isEmpty()) { %>
@@ -71,7 +66,7 @@
                 </div>
                 <% } else { %>
                 <div class="cabin">
-                    <div class="cabin-bow">▲ 船头</div>
+                    <div class="cabin-bow">船头 ▲</div>
                     <div class="cabin-body">
                         <% for (Map.Entry<String, List<SeatCell>> entry : rows.entrySet()) {
                                List<SeatCell> row = entry.getValue(); %>
@@ -85,7 +80,7 @@
                             <button type="button" class="seat <%= state %>" data-seat="<%= cell.getSeatNo() %>"
                                     aria-label="<%= cell.getSeatNo() %> <%= cell.getStatus() %>"
                                     <%= cell.isAvailable() ? "" : "disabled" %>
-                                    onclick="pick(this)"><%= cell.getNumber() %></button>
+                                    onclick="pick(this)"><%= cell.getSeatNo() %></button>
                             <% } %>
                         </div>
                         <% } %>
@@ -105,7 +100,7 @@
                     <div class="panel-title">乘客信息</div>
                     <div class="seat-summary" id="seatSummary" aria-live="polite">
                         <span id="seatSummaryText">尚未选择座位</span>
-                        <a class="seat-refresh" href="<%= ctx %>/book?action=seats&amp;scheduleId=<%= s.getId() %>">刷新余票</a>
+                        <a class="seat-refresh" href="<%= ctx %>/book?action=seats&amp;scheduleId=<%= s.getId() %>"><span class="ico ico-refresh ico-sm"></span>刷新余票</a>
                     </div>
 
                     <form method="post" action="<%= ctx %>/book" onsubmit="return checkForm()">
@@ -117,7 +112,7 @@
                         <div class="form-line"><label>身份证号（18位）</label><input name="idCard" maxlength="18" required placeholder="110101199001010011"></div>
                         <div class="form-line"><label>手机号（11位）</label><input name="phone" maxlength="11" required placeholder="13800000000"></div>
                         <p class="muted">代客购票须填写真实乘客信息（身份证需 18 位且校验位正确、手机 11 位），系统会在服务端校验。提交后座位锁定 <b>5 分钟</b>，请在时限内到"销售订单"支付，超时自动释放。</p>
-                        <button type="submit" class="btn-primary btn-block">确认锁座下单</button>
+                        <button type="submit" class="btn-primary btn-block"><span class="ico ico-seat"></span>确认锁座下单</button>
                     </form>
                 </div>
             </aside>
@@ -133,7 +128,7 @@
         picked = el;
         var seat = el.getAttribute('data-seat');
         document.getElementById('seatNo').value = seat;
-        document.getElementById('seatSummaryText').textContent = '已选 ' + seat + ' · ￥' + price;
+        document.getElementById('seatSummaryText').innerHTML = '<b>已选 ' + seat + '</b> · ￥' + price;
         document.getElementById('seatSummary').classList.add('has-seat');
     }
     function checkForm(){

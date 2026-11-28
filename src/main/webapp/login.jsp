@@ -15,9 +15,10 @@
 </head>
 <body class="login-page">
 <div class="login-card">
-    <h1>⛴ 轮渡码头客运管理系统</h1>
-    <p class="subtitle">请登录以继续使用</p>
-    <% if (registered) { %><div class="msg ok">注册成功，请登录</div><% } %>
+    <div class="login-brand"><span class="brand-mark"><span class="ico ico-ferry"></span></span></div>
+    <h1>轮渡码头客运管理系统</h1>
+    <p class="subtitle">登录后进入对应的工作台</p>
+    <% if (registered) { %><div class="msg ok"><span class="ico ico-check-circle ico-sm"></span><span>注册成功，请登录</span></div><% } %>
     <% if (error != null) { %><div class="msg err"><%= error %></div><% } %>
     <form action="${pageContext.request.contextPath}/login" method="post">
         <label>用户名<input type="text" name="username" value="<%= username %>" required autofocus></label>

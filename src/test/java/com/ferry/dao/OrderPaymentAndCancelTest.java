@@ -1,5 +1,6 @@
 package com.ferry.dao;
 
+import com.ferry.entity.Order;
 import com.ferry.util.DBUtil;
 import org.junit.After;
 import org.junit.Before;
@@ -11,6 +12,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.Assert.assertEquals;
@@ -138,6 +140,66 @@ public class OrderPaymentAndCancelTest {
         assertTrue(error, error.contains("不能支付"));
         assertEquals(1, soldSeats(scheduleId));
         assertEquals(1, paymentLogCount(orderId, "支付"));
+    }
+
+    @Test
+    public void cancelPendingOrderReleasesSeatAndMarksCanceled() throws Exception {
+        assertNull(orderDAO.cancelPending(orderId));
+
+        assertEquals("已取消", orderStatus(orderId));
+        assertEquals("已取消", ticketStatus(orderId));
+        assertEquals("可售", seatStatus(seatId));
+        assertEquals(0, soldSeats(scheduleId));
+        assertEquals(0, paymentLogCount(orderId, "支付"));
+    }
+
+    @Test
+    public void cancelPaidOrderIsRejected() throws Exception {
+        assertNull(orderDAO.pay(orderId));
+
+        String error = orderDAO.cancelPending(orderId);
+
+        assertNotNull(error);
+        assertTrue(error, error.contains("不能取消"));
+        assertEquals("已支付", orderStatus(orderId));
+        assertEquals("已支付", ticketStatus(orderId));
+        assertEquals("已售", seatStatus(seatId));
+    }
+
+    @Test
+    public void payAfterLockTimeoutIsRejected() throws Exception {
+        update("UPDATE seat SET lock_time=DATEADD(MINUTE,-6,GETDATE()) WHERE id=?", seatId);
+
+        String error = orderDAO.pay(orderId);
+
+        assertNotNull(error);
+        assertTrue(error, error.contains("超时"));
+        assertUnpaidStateUnchanged(0);
+    }
+
+    @Test
+    public void pendingOrderExposesLockRemainSeconds() throws Exception {
+        List<Order> orders = orderDAO.findByPassenger(passengerId);
+        Order target = null;
+        for (Order order : orders) {
+            if (order.getId() == orderId) target = order;
+        }
+
+        assertNotNull(target);
+        assertTrue("remaining=" + target.getLockRemainSeconds(),
+                target.getLockRemainSeconds() > 290 && target.getLockRemainSeconds() <= 300);
+    }
+
+    @Test
+    public void expiredPendingOrderWithReleasedSeatIsCanceled() throws Exception {
+        update("UPDATE seat SET seat_status=N'可售', lock_time=NULL WHERE id=?", seatId);
+
+        int expired = orderDAO.releaseExpiredLocks();
+
+        assertTrue(expired >= 1);
+        assertEquals("已取消", orderStatus(orderId));
+        assertEquals("已取消", ticketStatus(orderId));
+        assertEquals("可售", seatStatus(seatId));
     }
 
     @Test

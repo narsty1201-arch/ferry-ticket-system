@@ -27,22 +27,24 @@
 </head>
 <body class="mobile">
 <div class="phone">
-    <div class="phone-head">📋 我的订单</div>
+    <div class="phone-head"><span class="ico ico-orders"></span>我的订单</div>
     <div class="phone-body">
         <% if (msg != null && !msg.isEmpty()) { %><p class="msg ok"><%= msg %></p><% } %>
-        <% if (orders.isEmpty()) { %><p class="muted">暂无订单，快去<a href="${pageContext.request.contextPath}/passenger/schedules">查询班次</a>购票吧。</p><% } %>
+        <% if (orders.isEmpty()) { %><div class="card muted"><span class="ico ico-info"></span> 暂无订单，快去<a href="${pageContext.request.contextPath}/passenger/schedules">查询班次</a>购票吧。</div><% } %>
 
         <% for (Order o : orders) {
             String st = o.getStatus();
             String cls = "已支付".equals(st)||"已检票".equals(st)||"已完成".equals(st) ? "paid"
                        : (st.contains("取消")||st.contains("退票")) ? "cancel" : "";
+            int lockRemain = Math.max(0, Math.min(300, o.getLockRemainSeconds()));
+            String lockText = String.format("%02d:%02d", lockRemain / 60, lockRemain % 60);
         %>
         <div class="order">
             <div class="no">订单号 <%= o.getOrderNo() %> <span class="st <%= cls %>"><%= st %></span></div>
             <% java.util.List<String> infos = changeInfos.get(o.getId());
                if (infos != null && !infos.isEmpty()) { %>
             <div class="note warn">
-                <b>🔄 已改签 <%= infos.size() %> 次</b>
+                <b><span class="ico ico-refresh ico-sm"></span>已改签 <%= infos.size() %> 次</b>
                 <% for (String info : infos) { %><div style="margin-top:3px"><%= info %></div><% } %>
             </div>
             <% } %>
@@ -56,26 +58,41 @@
             <% java.util.List<String> logs = paymentLogs.get(o.getId());
                if (logs != null && !logs.isEmpty()) { %>
             <div class="note">
-                <b>💰 资金流水</b>
+                <b><span class="ico ico-money ico-sm"></span>资金流水</b>
                 <% for (String log : logs) { %><div style="margin-top:3px"><%= log %></div><% } %>
             </div>
             <% } %>
 
-            <div class="ops">
             <% if ("待支付".equals(st)) { %>
-                <form method="post" action="${pageContext.request.contextPath}/book">
-                    <input type="hidden" name="action" value="pay"><input type="hidden" name="orderId" value="<%= o.getId() %>">
-                    <button class="op-pay">立即支付（5分钟内）</button>
-                </form>
+            <div class="pay-panel<%= lockRemain <= 0 ? " expired" : "" %>" data-remain="<%= lockRemain %>">
+                <div class="pay-timer">
+                    <span>支付剩余</span>
+                    <b class="pay-countdown"><%= lockText %></b>
+                </div>
+                <div class="pay-actions">
+                    <form method="post" action="${pageContext.request.contextPath}/book"
+                          onsubmit="return confirm('取消后座位立即释放，确定取消订单吗？')">
+                        <input type="hidden" name="action" value="cancel">
+                        <input type="hidden" name="orderId" value="<%= o.getId() %>">
+                        <button class="op-cancel">取消订单</button>
+                    </form>
+                    <form method="post" action="${pageContext.request.contextPath}/book">
+                        <input type="hidden" name="action" value="pay">
+                        <input type="hidden" name="orderId" value="<%= o.getId() %>">
+                        <button class="op-pay">立即支付</button>
+                    </form>
+                </div>
+            </div>
             <% } %>
             <% if ("已支付".equals(st) || "已检票".equals(st)) { %>
+            <div class="ops">
                 <form method="post" action="${pageContext.request.contextPath}/book" onsubmit="return confirm('确定退票？将按规则扣手续费')">
                     <input type="hidden" name="action" value="refund"><input type="hidden" name="orderId" value="<%= o.getId() %>">
                     <input type="text" name="reason" placeholder="退票原因" size="8">
                     <button class="op-refund">退票</button>
                 </form>
-            <% } %>
             </div>
+            <% } %>
 
             <%
                 boolean canChange = "已支付".equals(st) && o.getDepartTime() != null
@@ -110,12 +127,8 @@
         </div>
         <% } %>
     </div>
-    <div class="tabbar">
-        <a href="${pageContext.request.contextPath}/passenger/home"><span>🏠 首页</span></a>
-        <a href="${pageContext.request.contextPath}/passenger/schedules"><span>🎫 班次</span></a>
-        <a href="${pageContext.request.contextPath}/passenger/orders"><span class="active">📋 订单</span></a>
-        <a href="${pageContext.request.contextPath}/passenger/profile"><span>👤 我的</span></a>
-    </div>
+    <%@ include file="/WEB-INF/includes/passenger-tabbar.jspf" %>
 </div>
+<script src="${pageContext.request.contextPath}/js/order-timer.js"></script>
 </body>
 </html>

@@ -18,32 +18,17 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>统计报表 - 轮渡码头</title>
     <link rel="stylesheet" href="${pageContext.request.contextPath}/css/style.css">
-    <style>
-        .sec { margin-top:24px; }
-        .sec h3 { color:#1f2937; border-left:4px solid #2563eb; padding-left:10px; font-size:16px; }
-        .rate-bar { display:inline-block; width:90px; height:9px; background:#e5e7eb; border-radius:5px; overflow:hidden; vertical-align:middle; }
-        .rate-bar i { display:block; height:100%; background:#22c55e; }
-    </style>
 </head>
 <body class="admin">
-<div class="admin-head">码头管理系统 · 管理后台　管理员：${sessionScope.userName}
-    <a class="logout" href="${pageContext.request.contextPath}/logout">退出</a>
-</div>
+<%@ include file="/WEB-INF/includes/admin-topbar.jspf" %>
 <div class="admin-layout">
-    <aside class="admin-menu">
-        <div><a href="${pageContext.request.contextPath}/admin/home">数据概览</a></div>
-        <div><a href="route">航线管理</a></div>
-        <div><a href="ship">船舶管理</a></div>
-        <div><a href="schedule">班次管理</a></div>
-        <div><a href="users">👥 用户管理</a></div>
-        <div><a href="orders">📋 订单管理</a></div>
-        <div class="active">📊 统计报表</div>
-        <div><a href="${pageContext.request.contextPath}/admin/checkin?action=stats">检票统计</a></div>
-    </aside>
+    <%@ include file="/WEB-INF/includes/admin-nav.jspf" %>
     <main class="admin-main">
-        <h2>📊 统计报表</h2>
+        <div class="page-kicker"><span class="ico ico-chart ico-sm"></span>经营分析</div>
+        <h2>统计报表</h2>
         <p class="muted">数据由 SQL 聚合查询实时生成（COUNT / SUM / AVG / GROUP BY / CASE WHEN / JOIN）。</p>
 
         <div class="kpi-row" style="margin-top:18px">

@@ -12,7 +12,9 @@
 </head>
 <body class="login-page">
 <div class="login-card">
+    <div class="login-brand"><span class="brand-mark"><span class="ico ico-ferry"></span></span></div>
     <h1>乘客注册</h1>
+    <p class="subtitle">完善实名信息后即可在线购票</p>
     <% if (error != null) { %><div class="msg err"><%= error %></div><% } %>
     <form action="${pageContext.request.contextPath}/register" method="post">
         <label>用户名<input type="text" name="username" required placeholder="4-20位字母数字下划线"></label>
@@ -22,7 +24,7 @@
         <label>身份证号<input type="text" name="idCard" required placeholder="18位身份证号"></label>
         <button type="submit" class="btn-primary btn-block">注 册</button>
     </form>
-    <p class="footer-link"><a href="login.jsp">← 返回登录</a></p>
+    <p class="footer-link"><a href="login.jsp"><span class="ico ico-back ico-sm"></span> 返回登录</a></p>
 </div>
 </body>
 </html>

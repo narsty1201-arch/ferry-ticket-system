@@ -17,20 +17,12 @@
     <link rel="stylesheet" href="${pageContext.request.contextPath}/css/style.css">
 </head>
 <body class="desk">
-<div class="desk-head">码头售票系统 · 售票　售票员：${sessionScope.userName}
-    <a class="logout" href="<%= ctx %>/logout">退出</a>
-</div>
+<%@ include file="/WEB-INF/includes/seller-topbar.jspf" %>
 <div class="desk-layout">
-    <aside class="desk-menu">
-        <div onclick="location.href='<%= ctx %>/seller/home'">工作台</div>
-        <div class="active">🎫 售票</div>
-        <div onclick="location.href='<%= ctx %>/seller/orders'">📋 销售订单</div>
-        <div onclick="location.href='<%= ctx %>/seller/checkin'">▶ 检票</div>
-        <div onclick="location.href='<%= ctx %>/seller/checkin?action=records'">检票记录</div>
-        <div onclick="location.href='<%= ctx %>/seller/checkin?action=stats'">检票统计</div>
-    </aside>
+    <%@ include file="/WEB-INF/includes/seller-nav.jspf" %>
     <main class="desk-main">
-        <h2>🎫 代客售票 · 选择班次</h2>
+        <div class="page-kicker"><span class="ico ico-sale ico-sm"></span>代客售票</div>
+        <h2>选择班次</h2>
         <% if (msg != null && !msg.isEmpty()) { %><p class="msg ok"><%= msg %></p><% } %>
         <table class="data-table">
             <thead>
@@ -50,7 +42,7 @@
                     <td><%= s.getStatus() %></td>
                     <td>
                         <% if ("售票中".equals(s.getStatus()) && s.getRemainSeats() > 0) { %>
-                        <a href="<%= ctx %>/book?action=seats&scheduleId=<%= s.getId() %>">选座购票</a>
+                        <a class="btn-sm btn-add" href="<%= ctx %>/book?action=seats&scheduleId=<%= s.getId() %>"><span class="ico ico-seat ico-sm"></span>选座购票</a>
                         <% } else { %><span class="muted">不可售</span><% } %>
                     </td>
                 </tr>

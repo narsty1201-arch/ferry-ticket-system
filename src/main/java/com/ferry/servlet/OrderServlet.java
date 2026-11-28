@@ -13,6 +13,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 import java.io.IOException;
+import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
@@ -34,6 +35,11 @@ public class OrderServlet extends HttpServlet {
             return;
         }
         User u = (User) session.getAttribute("loginUser");
+        try {
+            orderDAO.releaseExpiredLocks();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
         List<Order> orders = orderDAO.findByPassenger(u.getId());
         req.setAttribute("orders", orders);
 

@@ -1,0 +1,29 @@
+<%@ page pageEncoding="UTF-8" %>
+<%
+    String __staffNavCtx = request.getContextPath();
+    String __staffNavUri = request.getRequestURI();
+    String __staffNavAction = request.getParameter("action");
+    boolean __staffNavAdmin = "admin".equals(session.getAttribute("role"));
+    boolean __records = !"stats".equals(__staffNavAction);
+    boolean __stats = "stats".equals(__staffNavAction);
+%>
+<aside class="app-sidebar" aria-label="检票管理导航">
+<% if (__staffNavAdmin) { %>
+    <a class="app-nav-item" href="<%= __staffNavCtx %>/admin/home"><span class="ico ico-grid"></span><span>数据概览</span></a>
+    <a class="app-nav-item" href="<%= __staffNavCtx %>/admin/route"><span class="ico ico-route"></span><span>航线管理</span></a>
+    <a class="app-nav-item" href="<%= __staffNavCtx %>/admin/ship"><span class="ico ico-ship"></span><span>船舶管理</span></a>
+    <a class="app-nav-item" href="<%= __staffNavCtx %>/admin/schedule"><span class="ico ico-calendar"></span><span>班次管理</span></a>
+    <a class="app-nav-item" href="<%= __staffNavCtx %>/admin/users"><span class="ico ico-users"></span><span>用户管理</span></a>
+    <a class="app-nav-item" href="<%= __staffNavCtx %>/admin/orders"><span class="ico ico-orders"></span><span>订单管理</span></a>
+    <a class="app-nav-item" href="<%= __staffNavCtx %>/admin/stats"><span class="ico ico-chart"></span><span>统计报表</span></a>
+    <a class="app-nav-item <%= __records ? "active" : "" %>" href="<%= __staffNavCtx %>/admin/checkin?action=records"><span class="ico ico-clipboard"></span><span>检票记录</span></a>
+    <a class="app-nav-item <%= __stats ? "active" : "" %>" href="<%= __staffNavCtx %>/admin/checkin?action=stats"><span class="ico ico-chart"></span><span>检票统计</span></a>
+<% } else { %>
+    <a class="app-nav-item" href="<%= __staffNavCtx %>/seller/home"><span class="ico ico-grid"></span><span>工作台</span></a>
+    <a class="app-nav-item" href="<%= __staffNavCtx %>/seller/sell"><span class="ico ico-sale"></span><span>售票</span></a>
+    <a class="app-nav-item" href="<%= __staffNavCtx %>/seller/orders"><span class="ico ico-orders"></span><span>销售订单</span></a>
+    <a class="app-nav-item" href="<%= __staffNavCtx %>/seller/checkin"><span class="ico ico-check"></span><span>检票</span></a>
+    <a class="app-nav-item <%= __records ? "active" : "" %>" href="<%= __staffNavCtx %>/seller/checkin?action=records"><span class="ico ico-clipboard"></span><span>检票记录</span></a>
+    <a class="app-nav-item <%= __stats ? "active" : "" %>" href="<%= __staffNavCtx %>/seller/checkin?action=stats"><span class="ico ico-chart"></span><span>检票统计</span></a>
+<% } %>
+</aside>

@@ -12,6 +12,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>检票记录 - 轮渡码头</title>
     <link rel="stylesheet" href="${pageContext.request.contextPath}/css/style.css">
 </head>
@@ -20,29 +21,11 @@
     String ctx = request.getContextPath();
 %>
 <body class="desk">
-<div class="desk-head"><%= isAdmin ? "码头管理系统 · 检票记录　管理员" : "码头售票系统 · 检票模式　售票员" %>：${sessionScope.userName}
-    <a class="logout" href="<%= ctx %>/logout">退出</a>
-</div>
+<%@ include file="/WEB-INF/includes/staff-topbar.jspf" %>
 <div class="desk-layout">
-<% if (isAdmin) { %>
-    <aside class="admin-menu" style="width:200px">
-        <div><a href="<%= ctx %>/admin/home">数据概览</a></div>
-        <div><a href="<%= ctx %>/admin/route">航线管理</a></div>
-        <div><a href="<%= ctx %>/admin/ship">船舶管理</a></div>
-        <div><a href="<%= ctx %>/admin/schedule">班次管理</a></div>
-        <div><a href="<%= ctx %>/admin/users">👥 用户管理</a></div>
-        <div><a href="<%= ctx %>/admin/orders">📋 订单管理</a></div>
-        <div><a href="<%= ctx %>/admin/stats">📊 统计报表</a></div>
-        <div class="active">检票记录</div>
-    </aside>
-<% } else { %>
-    <aside class="desk-menu">
-        <div onclick="location.href='<%= ctx %>/seller/checkin'">▶ 检票</div>
-        <div class="active">检票记录</div>
-        <div onclick="location.href='<%= ctx %>/seller/checkin?action=stats'">检票统计</div>
-    </aside>
-<% } %>
+    <%@ include file="/WEB-INF/includes/staff-nav.jspf" %>
     <main class="desk-main">
+        <div class="page-kicker"><span class="ico ico-clipboard ico-sm"></span>检票管理</div>
         <h2>检票记录 <span class="muted" style="font-size:14px">共 <%= pageData.getTotal() %> 条</span></h2>
         <table class="data-table">
             <tr><th>序号</th><th>订单号</th><th>乘客</th><th>身份证</th><th>座位</th><th>航线</th><th>发船</th><th>检票时间</th><th>检票员</th><th>状态</th></tr>

@@ -1,0 +1,20 @@
+<%@ page pageEncoding="UTF-8" %>
+<%
+    String __staffCtx = request.getContextPath();
+    String __staffUri = request.getRequestURI();
+    String __staffAction = request.getParameter("action");
+    boolean __staffAdmin = "admin".equals(session.getAttribute("role"));
+    String __staffTitle = "stats".equals(__staffAction) ? "检票统计" : "检票记录";
+%>
+<header class="app-topbar">
+    <a class="app-brand" href="<%= __staffCtx %><%= __staffAdmin ? "/admin/home" : "/seller/home" %>">
+        <span class="brand-mark"><span class="ico ico-ferry" aria-hidden="true"></span></span>
+        <span class="brand-name"><%= __staffAdmin ? "码头管理系统" : "码头售票系统" %></span>
+        <span class="brand-sep">·</span>
+        <span class="brand-page"><%= __staffTitle %></span>
+    </a>
+    <div class="app-user">
+        <span class="user-chip"><span class="ico ico-user" aria-hidden="true"></span><%= __staffAdmin ? "管理员" : "售票员" %>：${sessionScope.userName}</span>
+        <a class="app-logout" href="<%= __staffCtx %>/logout"><span class="ico ico-logout" aria-hidden="true"></span>退出</a>
+    </div>
+</header>

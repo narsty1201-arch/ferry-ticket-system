@@ -18,15 +18,16 @@
 </head>
 <body class="mobile">
 <div class="phone">
-    <div class="phone-head">🔍 可购票班次 · 共 <%= list.size() %> 个</div>
+    <div class="phone-head"><span class="ico ico-search"></span>可购票班次 · 共 <%= list.size() %> 个</div>
     <div class="phone-body">
         <h2>你好，${sessionScope.userName}</h2>
+        <p class="muted">选择一条航线，查看实时余票与座位。</p>
         <% if (msg != null && !msg.isEmpty()) { %><p class="msg err"><%= msg %></p><% } %>
         <% if (list.isEmpty()) { %>
-        <div class="card muted">暂无可购票班次，请稍后再来</div>
+        <div class="card muted"><span class="ico ico-info"></span> 暂无可购票班次，请稍后再来</div>
         <% } %>
         <% for (Schedule s : list) { %>
-        <div class="card">
+        <div class="card schedule-card">
             <div class="route-name"><%= s.getRouteName() %></div>
             <div class="muted"><%= s.getStartPort() %> → <%= s.getEndPort() %>　<%= s.getShipName() %></div>
             <div class="facts">
@@ -35,18 +36,13 @@
             </div>
             <div class="remain">剩余座位 <%= s.getRemainSeats() %>/<%= s.getTotalSeats() %></div>
             <a href="${pageContext.request.contextPath}/book?action=seats&scheduleId=<%= s.getId() %>">
-                <div class="big-btn">选座购票</div>
+                <div class="big-btn"><span class="ico ico-seat"></span>选择座位</div>
             </a>
         </div>
         <% } %>
-        <div class="big-btn ghost" onclick="location.href='${pageContext.request.contextPath}/passenger/home'">返回首页</div>
+        <div class="big-btn ghost" onclick="location.href='${pageContext.request.contextPath}/passenger/home'"><span class="ico ico-back"></span>返回首页</div>
     </div>
-    <div class="tabbar">
-        <a href="${pageContext.request.contextPath}/passenger/home"><span>🏠 首页</span></a>
-        <a href="${pageContext.request.contextPath}/passenger/schedules"><span class="active">🎫 班次</span></a>
-        <a href="${pageContext.request.contextPath}/passenger/orders"><span>📋 订单</span></a>
-        <a href="${pageContext.request.contextPath}/passenger/profile"><span>👤 我的</span></a>
-    </div>
+    <%@ include file="/WEB-INF/includes/passenger-tabbar.jspf" %>
 </div>
 </body>
 </html>

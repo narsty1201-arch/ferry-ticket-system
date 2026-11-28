@@ -1,0 +1,34 @@
+<%@ page pageEncoding="UTF-8" %>
+<%
+    String __topCtx = request.getContextPath();
+    String __topUri = request.getRequestURI();
+    String __topAction = request.getParameter("action");
+    String __topTitle = "数据概览";
+    if (__topUri.endsWith("/admin/route")) {
+        __topTitle = "航线管理";
+    } else if (__topUri.endsWith("/admin/ship")) {
+        __topTitle = "船舶管理";
+    } else if (__topUri.endsWith("/admin/schedule")) {
+        __topTitle = "班次管理";
+    } else if (__topUri.endsWith("/admin/users")) {
+        __topTitle = "用户管理";
+    } else if (__topUri.endsWith("/admin/orders")) {
+        __topTitle = "订单管理";
+    } else if (__topUri.endsWith("/admin/stats")) {
+        __topTitle = "统计报表";
+    } else if (__topUri.endsWith("/admin/checkin")) {
+        __topTitle = "stats".equals(__topAction) ? "检票统计" : "检票记录";
+    }
+%>
+<header class="app-topbar">
+    <a class="app-brand" href="<%= __topCtx %>/admin/home">
+        <span class="brand-mark"><span class="ico ico-ferry" aria-hidden="true"></span></span>
+        <span class="brand-name">码头管理系统</span>
+        <span class="brand-sep">·</span>
+        <span class="brand-page"><%= __topTitle %></span>
+    </a>
+    <div class="app-user">
+        <span class="user-chip"><span class="ico ico-user" aria-hidden="true"></span>管理员：${sessionScope.userName}</span>
+        <a class="app-logout" href="<%= __topCtx %>/logout"><span class="ico ico-logout" aria-hidden="true"></span>退出</a>
+    </div>
+</header>

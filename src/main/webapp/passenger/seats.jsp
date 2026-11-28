@@ -17,6 +17,11 @@
         row.add(cell);
     }
     SimpleDateFormat fmt = new SimpleDateFormat("yyyy-MM-dd HH:mm");
+    SimpleDateFormat dayFmt = new SimpleDateFormat("yyyy-MM-dd");
+    SimpleDateFormat timeFmt = new SimpleDateFormat("HH:mm");
+    String departText = dayFmt.format(s.getDepartTime()).equals(dayFmt.format(new java.util.Date()))
+            ? "今天 " + timeFmt.format(s.getDepartTime())
+            : fmt.format(s.getDepartTime());
     String ctx = request.getContextPath();
 %>
 <!DOCTYPE html>
@@ -29,23 +34,24 @@
 </head>
 <body class="mobile">
 <div class="phone">
-    <div class="phone-head">🪑 选座 · <%= s.getRouteName() %></div>
-    <div class="phone-body">
-        <div class="seat-hero">
-            <img src="<%= ctx %>/images/ferry-header.png" alt="轮渡码头插画">
-        </div>
-
-        <div class="card">
-            <div><b><%= s.getStartPort() %> → <%= s.getEndPort() %></b>　<%= s.getShipName() %></div>
-            <div class="muted">发船 <%= fmt.format(s.getDepartTime()) %>　票价 ￥<%= s.getPrice() %></div>
+    <div class="phone-head"><span class="ico ico-seat"></span>选座 · <%= s.getRouteName() %></div>
+    <div class="phone-body seat-page has-action-bar">
+        <div class="trip-banner">
+            <div class="trip-main">
+                <span><%= s.getStartPort() %></span><span class="port-arrow">→</span><span><%= s.getEndPort() %></span>
+                <span class="dot">·</span><span class="ship-name"><%= s.getShipName() %></span>
+            </div>
+            <div class="trip-meta">
+                <span><%= departText %></span><span class="dot">·</span><span>票价 <b>￥<%= s.getPrice() %></b></span>
+            </div>
         </div>
 
         <% String msg = (String) request.getAttribute("msg"); if (msg != null && !msg.isEmpty()) { %>
-        <p class="msg err"><%= msg %></p><% } %>
+        <p class="msg err"><span class="ico ico-info ico-sm"></span><span><%= msg %></span></p><% } %>
 
         <div class="seat-head">
             <h3>选择座位</h3>
-            <span class="seat-count">余票 <b><%= availableCount %></b> / <%= seatMap.size() %></span>
+            <span class="seat-count">余票 <b><%= availableCount %></b>/<%= seatMap.size() %></span>
         </div>
 
         <% if (seatMap.isEmpty()) { %>
@@ -55,7 +61,7 @@
         </div>
         <% } else { %>
         <div class="cabin">
-            <div class="cabin-bow">▲ 船头</div>
+            <div class="cabin-bow">船头 ▲</div>
             <div class="cabin-body">
                 <% for (Map.Entry<String, List<SeatCell>> entry : rows.entrySet()) {
                        List<SeatCell> row = entry.getValue(); %>
@@ -83,29 +89,25 @@
         </div>
         <% } %>
 
-        <div class="seat-summary" id="seatSummary" aria-live="polite">
-            <span id="seatSummaryText">尚未选择座位</span>
-            <a class="seat-refresh" href="<%= ctx %>/book?action=seats&amp;scheduleId=<%= s.getId() %>">刷新余票</a>
+        <div class="notice-line">
+            <span class="ico ico-info ico-sm"></span>
+            <span>实名信息取自个人档案。座位锁定后请在 5 分钟内完成支付，超时自动释放。</span>
         </div>
-
-        <form method="post" action="${pageContext.request.contextPath}/book" onsubmit="return checkForm()">
-            <input type="hidden" name="action" value="order">
-            <input type="hidden" name="scheduleId" value="<%= s.getId() %>">
-            <input type="hidden" name="seatNo" id="seatNo" value="">
-
-            <div class="form-line"><label>乘客姓名（本人档案）</label><input value="${sessionScope.userName}" readonly></div>
-            <div class="form-line"><label>身份证号（本人档案）</label><input value="${sessionScope.userCard}" readonly></div>
-            <div class="form-line"><label>手机号（本人档案）</label><input value="${sessionScope.userPhone}" readonly></div>
-            <p class="muted">实名购票：船票身份信息取自您的个人档案，不可填写他人信息。如需修改请到"我的 → 个人中心"。<br>提交后座位锁定 <b>5 分钟</b>，请在时限内到"我的订单"支付，超时自动释放。</p>
-            <button type="submit" class="btn btn-block">🎫 确认锁座下单</button>
-        </form>
     </div>
-    <div class="tabbar">
-        <a href="${pageContext.request.contextPath}/passenger/home"><span>🏠 首页</span></a>
-        <a href="${pageContext.request.contextPath}/passenger/schedules"><span class="active">🎫 班次</span></a>
-        <a href="${pageContext.request.contextPath}/passenger/orders"><span>📋 订单</span></a>
-        <a href="${pageContext.request.contextPath}/passenger/profile"><span>👤 我的</span></a>
-    </div>
+    <form method="post" action="${pageContext.request.contextPath}/book" onsubmit="return checkForm()">
+        <input type="hidden" name="action" value="order">
+        <input type="hidden" name="scheduleId" value="<%= s.getId() %>">
+        <input type="hidden" name="seatNo" id="seatNo" value="">
+        <div class="seat-action">
+            <div class="seat-action-line" id="seatSummary" aria-live="polite">
+                <span class="seat-badge"><span class="ico ico-seat"></span></span>
+                <span id="seatSummaryText">尚未选择座位</span>
+                <a class="seat-refresh" href="<%= ctx %>/book?action=seats&amp;scheduleId=<%= s.getId() %>"><span class="ico ico-refresh ico-sm"></span>刷新</a>
+            </div>
+            <button type="submit" class="btn-primary">确认锁座下单</button>
+        </div>
+    </form>
+    <%@ include file="/WEB-INF/includes/passenger-tabbar.jspf" %>
 </div>
 <script>
     var picked = null;
@@ -116,7 +118,7 @@
         picked = el;
         var seat = el.getAttribute('data-seat');
         document.getElementById('seatNo').value = seat;
-        document.getElementById('seatSummaryText').textContent = '已选 ' + seat + ' · ￥' + price;
+        document.getElementById('seatSummaryText').innerHTML = '<b>已选 ' + seat + '</b> · ￥' + price;
         document.getElementById('seatSummary').classList.add('has-seat');
     }
     function checkForm(){

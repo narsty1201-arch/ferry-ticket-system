@@ -1,0 +1,23 @@
+<%@ page pageEncoding="UTF-8" %>
+<%
+    String __navCtx = request.getContextPath();
+    String __navUri = request.getRequestURI();
+    boolean __home = __navUri.endsWith("/passenger/home");
+    boolean __schedules = __navUri.endsWith("/passenger/schedules") || __navUri.endsWith("/book");
+    boolean __orders = __navUri.endsWith("/passenger/orders");
+    boolean __profile = __navUri.endsWith("/passenger/profile");
+%>
+<nav class="tabbar" aria-label="乘客端主导航">
+    <a class="tabbar-item <%= __home ? "active" : "" %>" href="<%= __navCtx %>/passenger/home">
+        <span class="ico ico-home" aria-hidden="true"></span><span>首页</span>
+    </a>
+    <a class="tabbar-item <%= __schedules ? "active" : "" %>" href="<%= __navCtx %>/passenger/schedules">
+        <span class="ico ico-ferry" aria-hidden="true"></span><span>班次</span>
+    </a>
+    <a class="tabbar-item <%= __orders ? "active" : "" %>" href="<%= __navCtx %>/passenger/orders">
+        <span class="ico ico-ticket" aria-hidden="true"></span><span>订单</span>
+    </a>
+    <a class="tabbar-item <%= __profile ? "active" : "" %>" href="<%= __navCtx %>/passenger/profile">
+        <span class="ico ico-user" aria-hidden="true"></span><span>我的</span>
+    </a>
+</nav>

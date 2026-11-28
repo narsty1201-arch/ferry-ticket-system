@@ -18,7 +18,7 @@
 </head>
 <body class="mobile">
 <div class="phone">
-    <div class="phone-head">👤 个人中心</div>
+    <div class="phone-head"><span class="ico ico-user"></span>个人中心</div>
     <div class="phone-body">
         <h2>你好，<%= p.getRealName() %></h2>
         <% if (msg != null && !msg.isEmpty()) { %><p class="msg ok"><%= msg %></p><% } %>
@@ -50,14 +50,9 @@
                 <button type="submit" class="btn">修改密码</button>
             </form>
         </div>
-        <div class="big-btn ghost" onclick="location.href='<%= ctx %>/logout'">退出登录</div>
+        <div class="big-btn ghost" onclick="location.href='<%= ctx %>/logout'"><span class="ico ico-logout"></span>退出登录</div>
     </div>
-    <div class="tabbar">
-        <a href="<%= ctx %>/passenger/home"><span>🏠 首页</span></a>
-        <a href="<%= ctx %>/passenger/schedules"><span>🎫 班次</span></a>
-        <a href="<%= ctx %>/passenger/orders"><span>📋 订单</span></a>
-        <a href="<%= ctx %>/passenger/profile"><span class="active">👤 我的</span></a>
-    </div>
+    <%@ include file="/WEB-INF/includes/passenger-tabbar.jspf" %>
 </div>
 <script>
     function checkPwd(){
