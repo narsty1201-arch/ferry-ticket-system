@@ -24,6 +24,26 @@ public class RouteDAO {
         return list;
     }
 
+    /** 查询启用航线的港口，供班次筛选下拉框使用。 */
+    public List<String> findActivePorts() {
+        List<String> ports = new ArrayList<>();
+        String sql = "SELECT port FROM ("
+                   + "SELECT start_port AS port FROM route "
+                   + "WHERE is_deleted=0 AND status='active' "
+                   + "UNION "
+                   + "SELECT end_port AS port FROM route "
+                   + "WHERE is_deleted=0 AND status='active'"
+                   + ") p ORDER BY port";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) ports.add(rs.getString("port"));
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return ports;
+    }
+
     public Route findById(int id) {
         String sql = "SELECT * FROM route WHERE id = ? AND is_deleted = 0";
         try (Connection conn = DBUtil.getConnection();

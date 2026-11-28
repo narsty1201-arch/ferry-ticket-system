@@ -69,6 +69,52 @@ public class ScheduleDAO {
         return list;
     }
 
+    /**
+     * 查询可购票班次，支持出发港、到达港和自然日筛选。
+     * 空条件表示不限制；日期使用半开区间，避免对 DATETIME 做 CAST。
+     */
+    public List<Schedule> searchBookable(String startPort, String endPort, Date travelDate) {
+        refreshExpired();
+        List<Schedule> list = new ArrayList<>();
+        StringBuilder sql = new StringBuilder(
+                "SELECT s.*, r.route_name, r.start_port, r.end_port, sh.ship_name "
+              + "FROM schedule s "
+              + "JOIN route r ON r.id = s.route_id "
+              + "JOIN ship sh ON sh.id = s.ship_id "
+              + "WHERE s.is_deleted=0 AND r.is_deleted=0 AND sh.is_deleted=0 "
+              + "AND r.status='active' AND sh.status='active' "
+              + "AND s.status=N'售票中' AND s.sold_seats < s.total_seats "
+              + "AND s.depart_time > GETDATE()");
+        if (hasText(startPort)) sql.append(" AND r.start_port=?");
+        if (hasText(endPort)) sql.append(" AND r.end_port=?");
+        if (travelDate != null) {
+            sql.append(" AND s.depart_time >= ? AND s.depart_time < ?");
+        }
+        sql.append(" ORDER BY s.depart_time");
+
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+            int idx = 1;
+            if (hasText(startPort)) ps.setString(idx++, startPort);
+            if (hasText(endPort)) ps.setString(idx++, endPort);
+            if (travelDate != null) {
+                long start = travelDate.getTime();
+                ps.setTimestamp(idx++, new Timestamp(start));
+                ps.setTimestamp(idx, new Timestamp(start + 24L * 60L * 60L * 1000L));
+            }
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) list.add(map(rs));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return list;
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.trim().isEmpty();
+    }
+
     /** 时间冲突校验：同一艘船在同一发船时间是否已有未删除班次 */
     public boolean timeConflict(int shipId, Timestamp departTime, int excludeId) {
         String sql = "SELECT COUNT(*) FROM schedule "
