@@ -23,6 +23,8 @@
             ? "今天 " + timeFmt.format(s.getDepartTime())
             : fmt.format(s.getDepartTime());
     String ctx = request.getContextPath();
+    String preselect = (String) request.getAttribute("seatNo");
+    if (preselect == null) preselect = "";
 %>
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -125,6 +127,12 @@
         if (!document.getElementById('seatNo').value){ alert('请先选择一个座位'); return false; }
         return true;
     }
+    (function(){
+        var pre = '<%= preselect %>';
+        if (!pre) return;
+        var el = document.querySelector('.seat.available[data-seat="' + pre + '"]');
+        if (el) pick(el);
+    })();
 </script>
 </body>
 </html>

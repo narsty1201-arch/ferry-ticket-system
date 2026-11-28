@@ -1,7 +1,8 @@
 <%@ page pageEncoding="UTF-8" %>
 <%
     String __topCtx = request.getContextPath();
-    String __topUri = request.getRequestURI();
+    String __topForward = (String) request.getAttribute("javax.servlet.forward.request_uri");
+    String __topUri = __topForward != null ? __topForward : request.getRequestURI();
     String __topAction = request.getParameter("action");
     String __topTitle = "数据概览";
     if (__topUri.endsWith("/admin/route")) {

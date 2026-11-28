@@ -23,7 +23,7 @@
     <main class="desk-main">
         <div class="page-kicker"><span class="ico ico-sale ico-sm"></span>代客售票</div>
         <h2>选择班次</h2>
-        <% if (msg != null && !msg.isEmpty()) { %><p class="msg ok"><%= msg %></p><% } %>
+        <% if (msg != null && !msg.isEmpty()) { %><p class="msg err"><%= msg %></p><% } %>
         <table class="data-table">
             <thead>
             <tr><th>班次ID</th><th>航线</th><th>港口</th><th>船舶</th><th>发船</th>

@@ -65,6 +65,11 @@ public class BookServlet extends HttpServlet {
             req.setAttribute("sched", sched);
             req.setAttribute("seatMap", seatMap);
             req.setAttribute("availableCount", availableCount);
+            // 选座页可能因“座位被占 / 资料不合规”被重定向回来，需要把提示和原座位还原
+            String preSeat = req.getParameter("seatNo");
+            if (preSeat != null && !preSeat.matches("[A-Za-z0-9]{1,10}")) preSeat = null;
+            req.setAttribute("seatNo", preSeat);
+            req.setAttribute("msg", escapeHtml(req.getParameter("msg")));
             String view = "passenger".equals(loginUser.getRole())
                     ? "/passenger/seats.jsp" : "/seller/seats.jsp";
             req.getRequestDispatcher(view).forward(req, resp);
@@ -119,15 +124,25 @@ public class BookServlet extends HttpServlet {
                     idError = com.ferry.util.IdentityUtil.validate(pName, pId, pPhone);
                 }
                 if (idError != null) {
-                    resp.sendRedirect(req.getContextPath() + listPath(loginUser) + "?msg=" + enc(idError));
+                    if ("passenger".equals(loginUser.getRole())) {
+                        resp.sendRedirect(req.getContextPath() + listPath(loginUser) + "?msg=" + enc(idError));
+                    } else {
+                        // 售票员校验失败时留在选座页，避免丢失已选座位和已填资料
+                        resp.sendRedirect(req.getContextPath() + "/book?action=seats&scheduleId=" + scheduleId
+                                + "&seatNo=" + enc(seatNo == null ? "" : seatNo)
+                                + "&msg=" + enc(idError));
+                    }
                     return;
                 }
 
                 // 方案一：passenger_id 只表示“可选的注册乘客账号”。
                 // 乘客本人购票绑定本人账号；售票员代客购票按证件匹配，未注册则存 NULL，
                 // 真实乘客身份始终以 ticket 表的姓名/证件/手机为准。
-                o.setPassengerId("passenger".equals(loginUser.getRole())
-                        ? loginUser.getId() : userDAO.findPassengerIdByIdCard(pId));
+                if ("passenger".equals(loginUser.getRole())) {
+                    o.setPassengerId(loginUser.getId());
+                } else {
+                    o.setPassengerId(userDAO.findPassengerIdByIdCard(pId));
+                }
 
                 Ticket t = new Ticket();
                 t.setSeatId(seatId);
@@ -139,6 +154,7 @@ public class BookServlet extends HttpServlet {
                 int result = orderDAO.lockAndCreate(o, t);
                 if (result == -1) {
                     resp.sendRedirect(req.getContextPath() + "/book?action=seats&scheduleId=" + scheduleId
+                            + "&seatNo=" + enc(seatNo == null ? "" : seatNo)
                             + "&msg=" + enc("座位已被占用，请重新选择"));
                 } else if (result == -3) {
                     resp.sendRedirect(req.getContextPath() + listPath(loginUser)
@@ -320,5 +336,15 @@ public class BookServlet extends HttpServlet {
     private String enc(String s) {
         try { return java.net.URLEncoder.encode(s, "UTF-8"); }
         catch (Exception e) { return ""; }
+    }
+
+    /** 选座页的提示来自 URL 参数，输出前做转义，避免被注入脚本 */
+    private String escapeHtml(String s) {
+        if (s == null) return null;
+        return s.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;");
     }
 }

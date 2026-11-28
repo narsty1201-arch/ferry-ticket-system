@@ -1,7 +1,8 @@
 <%@ page pageEncoding="UTF-8" %>
 <%
     String __navCtx = request.getContextPath();
-    String __navUri = request.getRequestURI();
+    String __navForward = (String) request.getAttribute("javax.servlet.forward.request_uri");
+    String __navUri = __navForward != null ? __navForward : request.getRequestURI();
     boolean __home = __navUri.endsWith("/passenger/home");
     boolean __schedules = __navUri.endsWith("/passenger/schedules") || __navUri.endsWith("/book");
     boolean __orders = __navUri.endsWith("/passenger/orders");

@@ -1,7 +1,8 @@
 <%@ page pageEncoding="UTF-8" %>
 <%
     String __staffNavCtx = request.getContextPath();
-    String __staffNavUri = request.getRequestURI();
+    String __staffNavForward = (String) request.getAttribute("javax.servlet.forward.request_uri");
+    String __staffNavUri = __staffNavForward != null ? __staffNavForward : request.getRequestURI();
     String __staffNavAction = request.getParameter("action");
     boolean __staffNavAdmin = "admin".equals(session.getAttribute("role"));
     boolean __records = !"stats".equals(__staffNavAction);

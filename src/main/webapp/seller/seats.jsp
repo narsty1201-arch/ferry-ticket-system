@@ -23,6 +23,9 @@
             ? "今天 " + timeFmt.format(s.getDepartTime())
             : fmt.format(s.getDepartTime());
     String ctx = request.getContextPath();
+    String msg = (String) request.getAttribute("msg");
+    String preselect = (String) request.getAttribute("seatNo");
+    if (preselect == null) preselect = "";
 %>
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -50,9 +53,6 @@
                         <span><%= departText %></span><span class="dot">·</span><span>票价 <b>￥<%= s.getPrice() %></b></span>
                     </div>
                 </div>
-
-                <% String msg = (String) request.getAttribute("msg"); if (msg != null && !msg.isEmpty()) { %>
-                <p class="msg err"><span class="ico ico-info ico-sm"></span><span><%= msg %></span></p><% } %>
 
                 <div class="seat-head">
                     <h3>选择座位</h3>
@@ -103,15 +103,20 @@
                         <a class="seat-refresh" href="<%= ctx %>/book?action=seats&amp;scheduleId=<%= s.getId() %>"><span class="ico ico-refresh ico-sm"></span>刷新余票</a>
                     </div>
 
+                    <% if (msg != null && !msg.isEmpty()) { %>
+                    <p class="msg err"><span class="ico ico-info ico-sm"></span><span><%= msg %></span></p>
+                    <% } %>
+
                     <form method="post" action="<%= ctx %>/book" onsubmit="return checkForm()">
                         <input type="hidden" name="action" value="order">
                         <input type="hidden" name="scheduleId" value="<%= s.getId() %>">
                         <input type="hidden" name="seatNo" id="seatNo" value="">
 
                         <div class="form-line"><label>乘客姓名</label><input name="passengerName" required placeholder="请输入乘船人姓名"></div>
-                        <div class="form-line"><label>身份证号（18位）</label><input name="idCard" maxlength="18" required placeholder="110101199001010011"></div>
+                        <div class="form-line"><label>身份证号（18位）</label><input name="idCard" maxlength="18" required placeholder="请输入 18 位身份证号"></div>
                         <div class="form-line"><label>手机号（11位）</label><input name="phone" maxlength="11" required placeholder="13800000000"></div>
                         <p class="muted">代客购票须填写真实乘客信息（身份证需 18 位且校验位正确、手机 11 位），系统会在服务端校验。提交后座位锁定 <b>5 分钟</b>，请在时限内到"销售订单"支付，超时自动释放。</p>
+                        <p class="msg err seat-form-error" id="formError" hidden><span class="ico ico-info ico-sm"></span><span id="formErrorText"></span></p>
                         <button type="submit" class="btn-primary btn-block"><span class="ico ico-seat"></span>确认锁座下单</button>
                     </form>
                 </div>
@@ -131,10 +136,38 @@
         document.getElementById('seatSummaryText').innerHTML = '<b>已选 ' + seat + '</b> · ￥' + price;
         document.getElementById('seatSummary').classList.add('has-seat');
     }
+    function idCardValid(v){
+        v = (v || '').toUpperCase();
+        if (!/^\d{17}[0-9X]$/.test(v)) return false;
+        var w = [7,9,10,5,8,4,2,1,6,3,7,9,10,5,8,4,2];
+        var c = ['1','0','X','9','8','7','6','5','4','3','2'];
+        var sum = 0;
+        for (var i = 0; i < 17; i++) sum += parseInt(v.charAt(i), 10) * w[i];
+        return c[sum % 11] === v.charAt(17);
+    }
+    function showFormError(text){
+        var box = document.getElementById('formError');
+        document.getElementById('formErrorText').textContent = text;
+        box.hidden = false;
+        box.scrollIntoView({ block: 'nearest' });
+    }
     function checkForm(){
+        document.getElementById('formError').hidden = true;
         if (!document.getElementById('seatNo').value){ alert('请先选择一个座位'); return false; }
+        var name = document.querySelector('input[name="passengerName"]').value.trim();
+        if (name.length < 2 || name.length > 20){ showFormError('乘客姓名需为 2~20 个字符'); return false; }
+        var id = document.querySelector('input[name="idCard"]').value.trim();
+        if (!idCardValid(id)){ showFormError('身份证号需为 18 位且校验位正确，请核对后重填'); return false; }
+        var phone = document.querySelector('input[name="phone"]').value.trim();
+        if (!/^1\d{10}$/.test(phone)){ showFormError('手机号需为 11 位且以 1 开头'); return false; }
         return true;
     }
+    (function(){
+        var pre = '<%= preselect %>';
+        if (!pre) return;
+        var el = document.querySelector('.seat.available[data-seat="' + pre + '"]');
+        if (el) pick(el);
+    })();
 </script>
 </body>
 </html>

@@ -1,7 +1,8 @@
 <%@ page pageEncoding="UTF-8" %>
 <%
     String __sideCtx = request.getContextPath();
-    String __sideUri = request.getRequestURI();
+    String __sideForward = (String) request.getAttribute("javax.servlet.forward.request_uri");
+    String __sideUri = __sideForward != null ? __sideForward : request.getRequestURI();
     String __sideAction = request.getParameter("action");
     boolean __home = __sideUri.endsWith("/admin/home");
     boolean __route = __sideUri.endsWith("/admin/route");

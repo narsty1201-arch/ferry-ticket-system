@@ -1,7 +1,8 @@
 <%@ page pageEncoding="UTF-8" %>
 <%
     String __staffCtx = request.getContextPath();
-    String __staffUri = request.getRequestURI();
+    String __staffForward = (String) request.getAttribute("javax.servlet.forward.request_uri");
+    String __staffUri = __staffForward != null ? __staffForward : request.getRequestURI();
     String __staffAction = request.getParameter("action");
     boolean __staffAdmin = "admin".equals(session.getAttribute("role"));
     String __staffTitle = "stats".equals(__staffAction) ? "检票统计" : "检票记录";
