@@ -35,6 +35,8 @@
     String endDate = (String) request.getAttribute("endDate");
     String filterError = (String) request.getAttribute("filterError");
     Integer selectedRouteId = (Integer) request.getAttribute("routeId");
+    String exportUrl = (String) request.getAttribute("exportUrl");
+    if (exportUrl == null) exportUrl = "stats?format=xlsx&startDate=&endDate=&routeId=";
 %>
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -71,7 +73,8 @@
                 </select>
             </div>
             <div><button type="submit" class="btn-sm btn-add">应用筛选</button>
-                <a class="btn-sm btn-secondary" href="${pageContext.request.contextPath}/admin/stats">重置</a></div>
+                <a class="btn-sm btn-secondary" href="${pageContext.request.contextPath}/admin/stats">重置</a>
+                <a class="btn-sm btn-secondary" href="<%= h(exportUrl) %>">导出 Excel</a></div>
         </form>
         <% if (filterError != null && !filterError.isEmpty()) { %>
         <p class="msg err"><%= h(filterError) %></p>

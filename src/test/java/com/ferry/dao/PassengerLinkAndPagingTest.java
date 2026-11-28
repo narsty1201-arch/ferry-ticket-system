@@ -134,8 +134,10 @@ public class PassengerLinkAndPagingTest {
         assertEquals(3, orderDAO.countForAdmin("已支付", tag));
         List<Order> first = orderDAO.findForAdmin("已支付", tag, 1, 2);
         List<Order> second = orderDAO.findForAdmin("已支付", tag, 2, 2);
+        List<Order> exported = orderDAO.findAllForAdmin("已支付", tag);
         assertEquals(2, first.size());
         assertEquals(1, second.size());
+        assertEquals("导出应返回全部筛选结果而不是单页", 3, exported.size());
         assertEquals(2, com.ferry.util.Page.clamp(99, 3, 2));
 
         try (Connection conn = DBUtil.getConnection()) {

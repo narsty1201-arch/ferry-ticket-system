@@ -16,6 +16,8 @@
     String startDate = (String) request.getAttribute("startDate");
     String endDate = (String) request.getAttribute("endDate");
     String dateError = (String) request.getAttribute("dateError");
+    String exportUrl = (String) request.getAttribute("exportUrl");
+    if (exportUrl == null) exportUrl = "performance?format=xlsx&startDate=&endDate=";
 %>
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -40,7 +42,8 @@
             <div><label>结束日期（含当天）</label>
                 <input type="date" name="endDate" value="<%= h(endDate) %>"></div>
             <div><button type="submit" class="btn-sm btn-add">查看区间业绩</button>
-                <a class="btn-sm btn-secondary" href="${pageContext.request.contextPath}/seller/performance">重置</a></div>
+                <a class="btn-sm btn-secondary" href="${pageContext.request.contextPath}/seller/performance">重置</a>
+                <a class="btn-sm btn-secondary" href="<%= h(exportUrl) %>">导出 Excel</a></div>
         </form>
         <% if (dateError != null && !dateError.isEmpty()) { %>
         <p class="msg err"><%= h(dateError) %></p>

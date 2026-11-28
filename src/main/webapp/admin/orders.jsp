@@ -13,6 +13,8 @@
     String st = (String) request.getAttribute("status"); if (st == null) st = "all";
     String keyword = (String) request.getAttribute("keyword"); if (keyword == null) keyword = "";
     String msg = (String) request.getAttribute("msg");
+    String exportUrl = (String) request.getAttribute("exportUrl");
+    if (exportUrl == null) exportUrl = "orders?format=xlsx&status=all&keyword=";
     SimpleDateFormat fmt = new SimpleDateFormat("yyyy-MM-dd HH:mm");
 %>
 <!DOCTYPE html>
@@ -47,6 +49,8 @@
             <div><label>关键字（订单号 / 乘客姓名 / 登录账号 / 手机号）</label>
                 <input name="keyword" value="<%= keyword %>" placeholder="如 FD2026..."></div>
             <div><button type="submit" class="btn-sm btn-add">查询</button></div>
+            <div><a class="btn-sm btn-secondary"
+                    href="<%= com.ferry.util.HtmlUtil.escape(exportUrl) %>">导出 Excel</a></div>
         </form>
 
         <table class="data-table">

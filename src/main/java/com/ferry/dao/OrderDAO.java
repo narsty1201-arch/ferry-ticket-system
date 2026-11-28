@@ -1178,6 +1178,31 @@ public class OrderDAO {
         return list;
     }
 
+    /** 管理员：按当前筛选导出全部订单（不分页），供 Excel 导出使用。 */
+    public List<Order> findAllForAdmin(String status, String keyword) {
+        List<Order> list = new ArrayList<Order>();
+        StringBuilder sql = new StringBuilder(
+                "SELECT o.*, s.depart_time, r.route_name, sh.ship_name "
+              + "FROM [order] o "
+              + "JOIN schedule s ON s.id=o.schedule_id "
+              + "JOIN route r ON r.id=s.route_id "
+              + "JOIN ship sh ON sh.id=s.ship_id "
+              + "LEFT JOIN [user] u ON u.id=o.passenger_id WHERE 1=1 ");
+        appendAdminOrderFilter(sql, status, keyword);
+        sql.append("ORDER BY o.id DESC");
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+            bindAdminOrderFilter(ps, status, keyword);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) list.add(map(rs));
+            }
+            attachTickets(conn, list);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return list;
+    }
+
     private void appendAdminOrderFilter(StringBuilder sql, String status, String keyword) {
         if (status != null && !status.trim().isEmpty() && !"all".equals(status)) {
             sql.append("AND o.status = ? ");
@@ -1214,13 +1239,14 @@ public class OrderDAO {
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, orderNo);
+            Order order = null;
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    Order o = map(rs);
-                    attachTickets(conn, java.util.Collections.singletonList(o));
-                    return o;
+                    order = map(rs);
                 }
             }
+            if (order != null) attachTickets(conn, java.util.Collections.singletonList(order));
+            return order;
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -1235,13 +1261,14 @@ public class OrderDAO {
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, id);
+            Order order = null;
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    Order o = map(rs);
-                    attachTickets(conn, java.util.Collections.singletonList(o));
-                    return o;
+                    order = map(rs);
                 }
             }
+            if (order != null) attachTickets(conn, java.util.Collections.singletonList(order));
+            return order;
         } catch (SQLException e) {
             e.printStackTrace();
         }
