@@ -21,15 +21,16 @@
         <h2>检票登船</h2>
         <div class="scan-box">
             <h3><span class="ico ico-ticket"></span>扫描或输入订单号检票</h3>
-            <p class="muted">输入乘客的订单号（如 FD2026112500001），确认后完成检票登船。</p>
+            <p class="muted">输入订单号检完整单；也可以填写船票 ID 只检其中一张。检票窗口为发船前 60 分钟至发船后 10 分钟。</p>
             <% if (msg != null && !msg.isEmpty()) { %>
                 <div class="msg <%= msg.startsWith("检票失败") ? "err" : "ok" %>"><span class="ico ico-info ico-sm"></span><span><%= msg %></span></div>
             <% } %>
             <form method="post" action="${pageContext.request.contextPath}/seller/checkin" id="checkinForm">
                 <input type="text" name="orderNo" placeholder="请输入订单号" value="<%= orderNo == null ? "" : orderNo %>" autofocus>
+                <input type="number" name="ticketId" min="1" placeholder="船票ID（可选）" style="margin-top:8px;width:100%">
                 <button class="btn-primary"><span class="ico ico-check"></span>确认检票（Enter）</button>
             </form>
-            <div class="notice-line"><span class="ico ico-info ico-sm"></span><span>校验规则：订单须已支付、未退票、未重复检票。</span></div>
+            <div class="notice-line"><span class="ico ico-info ico-sm"></span><span>校验规则：订单须已支付、未退票、未重复检票，且班次处于检票时间窗口；失败尝试会记录原因。</span></div>
         </div>
     </main>
 </div>

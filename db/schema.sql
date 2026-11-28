@@ -175,11 +175,17 @@ CREATE TABLE dbo.check_in (
     status          NVARCHAR(10)  NOT NULL,
     fail_reason     NVARCHAR(100) NULL,
     CONSTRAINT PK_check_in PRIMARY KEY (id),
-    CONSTRAINT UQ_check_ticket UNIQUE (ticket_id),
     CONSTRAINT CK_check_status CHECK (status IN (N'成功',N'失败')),
     CONSTRAINT FK_check_ticket FOREIGN KEY (ticket_id) REFERENCES dbo.ticket(id),
     CONSTRAINT FK_check_seller FOREIGN KEY (seller_id) REFERENCES dbo.[user](id)
 );
+GO
+
+-- 同一张票只允许成功检票一次；失败尝试可以保留多条，便于审计。
+CREATE UNIQUE INDEX UX_check_success_ticket
+    ON dbo.check_in(ticket_id)
+    WHERE status = N'成功';
+CREATE INDEX IX_check_time ON dbo.check_in(check_time);
 GO
 
 CREATE TABLE dbo.change_log (

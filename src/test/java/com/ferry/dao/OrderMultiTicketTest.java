@@ -129,6 +129,10 @@ public class OrderMultiTicketTest {
 
     @Test
     public void multiTicketOrderChecksInAllTicketsAndShowsAllDetails() throws Exception {
+        try (Connection conn = DBUtil.getConnection()) {
+            execute(conn, "UPDATE schedule SET depart_time=DATEADD(MINUTE,30,GETDATE()), "
+                    + "arrive_time=DATEADD(MINUTE,90,GETDATE()) WHERE id=?", scheduleId);
+        }
         Order order = new Order();
         order.setScheduleId(scheduleId);
         order.setPassengerId(passengerId);
@@ -143,6 +147,30 @@ public class OrderMultiTicketTest {
                 + "JOIN ticket t ON t.id=ci.ticket_id WHERE t.order_id=? AND ci.status=N'成功'", orderId));
         assertEquals(3, checkInDAO.findTicketDetails(order.getOrderNo()).size());
         assertNotNull(checkInDAO.checkIn(order.getOrderNo(), passengerId));
+    }
+
+    @Test
+    public void checkInBeforeWindowRecordsFailureAndKeepsTicketPaid() throws Exception {
+        Order order = new Order();
+        order.setScheduleId(scheduleId);
+        order.setPassengerId(passengerId);
+        int orderId = orderDAO.lockAndCreate(order, tickets());
+        assertTrue(orderId > 0);
+        assertNull(orderDAO.pay(orderId));
+
+        CheckInDAO checkInDAO = new CheckInDAO();
+        String error = checkInDAO.checkIn(order.getOrderNo(), passengerId);
+
+        assertNotNull(error);
+        assertTrue(error, error.contains("尚未开始"));
+        assertEquals("已支付", orderStatus(orderId));
+        assertEquals(3, queryInt("SELECT COUNT(*) FROM check_in ci "
+                + "JOIN ticket t ON t.id=ci.ticket_id WHERE t.order_id=? AND ci.status=N'失败'", orderId));
+        assertEquals(3, ticketStatusCount(orderId, "已支付"));
+
+        assertNotNull(checkInDAO.checkIn(order.getOrderNo(), passengerId));
+        assertEquals(6, queryInt("SELECT COUNT(*) FROM check_in ci "
+                + "JOIN ticket t ON t.id=ci.ticket_id WHERE t.order_id=? AND ci.status=N'失败'", orderId));
     }
 
     @Test

@@ -574,7 +574,7 @@ public class OrderDAO {
 
     /**
      * 退票前置校验：返回 null 表示允许退票，否则返回不能退票的原因。
-     * 对标 12306：班次发船后不再办理退票（改签仍允许，按用户要求保留）。
+     * 规则：发船前 2 小时以上免费退票；不足 2 小时扣 20%；发船后不退。
      */
     public String checkRefund(int orderId) {
         String sql = "SELECT o.status, s.depart_time, s.status AS sched_status "
@@ -588,7 +588,7 @@ public class OrderDAO {
                 if (!"已支付".equals(st) && !"已检票".equals(st)) return "该订单当前状态不能退票";
                 Timestamp depart = rs.getTimestamp("depart_time");
                 if (depart == null || !depart.after(new Timestamp(System.currentTimeMillis()))) {
-                    return "班次已发船，不能退票（12306 规则：开车后不办理退票）";
+                    return "班次已发船，不能退票";
                 }
                 return null;
             }
@@ -600,7 +600,7 @@ public class OrderDAO {
 
     /**
      * 退票：按距发船时间计算手续费，事务内改订单/船票状态、释放座位、记录退款金额和原因。
-     * 手续费规则：>24h 免手续费；2~24h 收10%；<2h 收20%。
+     * 手续费规则：距发船 2 小时以上免手续费；不足 2 小时收 20%。
      * 发船后禁止退票（与 checkRefund 双重保险）。
      */
     public BigDecimal refund(int orderId, String reason) throws SQLException {
@@ -655,10 +655,10 @@ public class OrderDAO {
                 }
             }
 
-            // 手续费计算
-            long hours = (depart.getTime() - System.currentTimeMillis()) / (1000L * 3600);
-            BigDecimal rate = hours > 24 ? BigDecimal.ZERO
-                            : (hours >= 2 ? new BigDecimal("0.10") : new BigDecimal("0.20"));
+            // 手续费计算：不足 2 小时收 20%，2 小时及以上免手续费。
+            long millisToDepart = depart.getTime() - System.currentTimeMillis();
+            BigDecimal rate = millisToDepart < 2L * 60L * 60L * 1000L
+                    ? new BigDecimal("0.20") : BigDecimal.ZERO;
             BigDecimal fee = amount.multiply(rate).setScale(2, BigDecimal.ROUND_HALF_UP);
             BigDecimal refundAmount = amount.subtract(fee);
 
@@ -738,6 +738,7 @@ public class OrderDAO {
 
     /**
      * 改签前置校验：返回 null 表示允许，否则返回原因。
+     * 规则：仅“已支付”订单；新旧班次发船前至少 1 小时；目标班次仍在售票且更晚。
      */
     public String checkChange(int orderId, int newScheduleId) {
         String sql = "SELECT o.status, o.schedule_id AS old_schedule_id, "
@@ -761,6 +762,14 @@ public class OrderDAO {
                 if (!"售票中".equals(rs.getString("new_status")) || nd == null
                         || !nd.after(new Timestamp(System.currentTimeMillis()))) {
                     return "目标班次已发船或停止售票，不能改签";
+                }
+                if (od == null || od.getTime() - System.currentTimeMillis()
+                        < 60L * 60L * 1000L) {
+                    return "原班次发船前不足 1 小时，不能改签";
+                }
+                if (nd.getTime() - System.currentTimeMillis()
+                        < 60L * 60L * 1000L) {
+                    return "目标班次发船前不足 1 小时，不能改签";
                 }
                 int oldScheduleId = rs.getInt("old_schedule_id");
                 if (od != null && newScheduleId != oldScheduleId && !nd.after(od)) {

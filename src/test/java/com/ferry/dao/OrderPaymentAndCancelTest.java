@@ -220,6 +220,29 @@ public class OrderPaymentAndCancelTest {
     }
 
     @Test
+    public void refundWithinTwoHoursChargesTwentyPercent() throws Exception {
+        assertNull(orderDAO.pay(orderId));
+        update("UPDATE schedule SET depart_time=DATEADD(MINUTE,60,GETDATE()) WHERE id=?", scheduleId);
+
+        BigDecimal refund = orderDAO.refund(orderId, "临近发船退票");
+
+        assertMoney(new BigDecimal("80.00"), refund);
+        assertMoney(new BigDecimal("80.00"), refundAmount(orderId));
+        assertMoney(new BigDecimal("80.00"), paymentAmount(orderId, "退票退款"));
+    }
+
+    @Test
+    public void changeWithinOneHourIsRejected() throws Exception {
+        assertNull(orderDAO.pay(orderId));
+        update("UPDATE schedule SET depart_time=DATEADD(MINUTE,30,GETDATE()) WHERE id=?", scheduleId);
+
+        String error = orderDAO.checkChange(orderId, scheduleId);
+
+        assertNotNull(error);
+        assertTrue(error, error.contains("不足 1 小时"));
+    }
+
+    @Test
     public void cancelBeforeDepartureRefundsAndReleasesEverything() throws Exception {
         int paidOrderId = createOrder("A2", "A2-order", new BigDecimal("120.00"),
                 "已支付", "已支付", "已售");
