@@ -112,10 +112,15 @@
                         <input type="hidden" name="scheduleId" value="<%= s.getId() %>">
                         <input type="hidden" name="seatNo" id="seatNo" value="">
 
-                        <div class="form-line"><label>乘客姓名</label><input name="passengerName" required placeholder="请输入乘船人姓名"></div>
-                        <div class="form-line"><label>身份证号（18位）</label><input name="idCard" maxlength="18" required placeholder="请输入 18 位身份证号"></div>
-                        <div class="form-line"><label>手机号（11位）</label><input name="phone" maxlength="11" required placeholder="13800000000"></div>
-                        <p class="muted">代客购票须填写真实乘客信息（身份证需 18 位且校验位正确、手机 11 位），系统会在服务端校验。提交后座位锁定 <b>5 分钟</b>，请在时限内到"销售订单"支付，超时自动释放。</p>
+                        <% for (int i = 1; i <= 5; i++) { %>
+                        <div class="passenger-card" <%= i > 1 ? "hidden" : "" %>>
+                            <div class="passenger-card-title">乘客 <%= i %> <span class="muted">（对应一个座位）</span></div>
+                            <div class="form-line"><label>姓名</label><input name="passengerName" maxlength="20" placeholder="请输入乘船人姓名"></div>
+                            <div class="form-line"><label>身份证号（18位）</label><input name="idCard" maxlength="18" placeholder="请输入 18 位身份证号"></div>
+                            <div class="form-line"><label>手机号（11位）</label><input name="phone" maxlength="11" placeholder="13800000000"></div>
+                        </div>
+                        <% } %>
+                        <p class="muted">代客购票最多 5 人，每位乘客对应一个座位；须填写真实信息（身份证需 18 位且校验位正确、手机 11 位），系统会在服务端校验。提交后座位锁定 <b>5 分钟</b>，请在时限内到“销售订单”支付，超时自动释放。</p>
                         <p class="msg err seat-form-error" id="formError" hidden><span class="ico ico-info ico-sm"></span><span id="formErrorText"></span></p>
                         <button type="submit" class="btn-primary btn-block"><span class="ico ico-seat"></span>确认锁座下单</button>
                     </form>
@@ -125,16 +130,37 @@
     </main>
 </div>
 <script>
-    var picked = null;
-    var price = '<%= s.getPrice() %>';
+    var picked = [];
+    var price = Number('<%= s.getPrice() %>');
     function pick(el){
-        if (picked) picked.classList.remove('sel');
-        el.classList.add('sel');
-        picked = el;
         var seat = el.getAttribute('data-seat');
-        document.getElementById('seatNo').value = seat;
-        document.getElementById('seatSummaryText').innerHTML = '<b>已选 ' + seat + '</b> · ￥' + price;
-        document.getElementById('seatSummary').classList.add('has-seat');
+        var index = picked.indexOf(seat);
+        if (index >= 0) {
+            picked.splice(index, 1);
+            el.classList.remove('sel');
+        } else {
+            if (picked.length >= 5) { alert('一个订单最多选择 5 个座位'); return; }
+            picked.push(seat);
+            el.classList.add('sel');
+        }
+        picked.sort();
+        document.getElementById('seatNo').value = picked.join(',');
+        var summary = document.getElementById('seatSummary');
+        var text = document.getElementById('seatSummaryText');
+        if (picked.length === 0) {
+            text.innerHTML = '尚未选择座位';
+            summary.classList.remove('has-seat');
+        } else {
+            text.innerHTML = '<b>已选 ' + picked.join('、') + '</b> · ￥' +
+                (price * picked.length).toFixed(2);
+            summary.classList.add('has-seat');
+        }
+        syncPassengerCards();
+    }
+    function syncPassengerCards(){
+        var cards = document.querySelectorAll('.passenger-card');
+        var count = Math.max(picked.length, 1);
+        for (var i = 0; i < cards.length; i++) cards[i].hidden = i >= count;
     }
     function idCardValid(v){
         v = (v || '').toUpperCase();
@@ -153,13 +179,16 @@
     }
     function checkForm(){
         document.getElementById('formError').hidden = true;
-        if (!document.getElementById('seatNo').value){ alert('请先选择一个座位'); return false; }
-        var name = document.querySelector('input[name="passengerName"]').value.trim();
-        if (name.length < 2 || name.length > 20){ showFormError('乘客姓名需为 2~20 个字符'); return false; }
-        var id = document.querySelector('input[name="idCard"]').value.trim();
-        if (!idCardValid(id)){ showFormError('身份证号需为 18 位且校验位正确，请核对后重填'); return false; }
-        var phone = document.querySelector('input[name="phone"]').value.trim();
-        if (!/^1\d{10}$/.test(phone)){ showFormError('手机号需为 11 位且以 1 开头'); return false; }
+        if (!picked.length){ alert('请至少选择一个座位'); return false; }
+        var cards = document.querySelectorAll('.passenger-card');
+        for (var i = 0; i < picked.length; i++) {
+            var name = cards[i].querySelector('input[name="passengerName"]').value.trim();
+            var id = cards[i].querySelector('input[name="idCard"]').value.trim();
+            var phone = cards[i].querySelector('input[name="phone"]').value.trim();
+            if (name.length < 2 || name.length > 20){ showFormError('第 ' + (i + 1) + ' 位乘客姓名需为 2~20 个字符'); return false; }
+            if (!idCardValid(id)){ showFormError('第 ' + (i + 1) + ' 位乘客身份证号需为 18 位且校验位正确'); return false; }
+            if (!/^1\d{10}$/.test(phone)){ showFormError('第 ' + (i + 1) + ' 位乘客手机号需为 11 位且以 1 开头'); return false; }
+        }
         return true;
     }
     (function(){

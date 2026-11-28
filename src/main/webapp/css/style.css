@@ -562,6 +562,15 @@ body.mobile { background: #eef2f8; }
 .mobile .amount { margin: 8px 0 0; color: var(--text); font-weight: 650; font-variant-numeric: tabular-nums; }
 .mobile .amount .refund { color: var(--ok); }
 .mobile .eta { color: var(--text-2); }
+.ticket-lines {
+    margin: 7px 0 4px;
+    padding: 7px 10px;
+    border-radius: 8px;
+    background: var(--surface-soft);
+    color: var(--text-2);
+    font-size: 12px;
+    line-height: 1.7;
+}
 .mobile .note {
     margin: 11px 0;
     padding: 10px 12px;
@@ -867,6 +876,21 @@ body.mobile { background: #eef2f8; }
 /* ===== 选座页 ===== */
 .seat-page { padding-bottom: 28px; }
 .seat-page.has-action-bar { padding-bottom: 196px; }
+.passenger-card {
+    margin: 0 0 12px;
+    padding: 13px 14px 2px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: #fff;
+}
+.passenger-card-title {
+    margin: 0 0 10px;
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 650;
+}
+.passenger-card-title .muted { font-weight: 400; }
+.passenger-card .form-line:last-child { margin-bottom: 12px; }
 .trip-banner {
     margin: 0 0 20px;
     padding: 17px 18px;
@@ -1344,6 +1368,13 @@ select {
 .ticket .row span:last-child { color: var(--text); font-weight: 650; text-align: right; }
 .ticket .act { margin-top: 20px; text-align: center; }
 .ticket .act a { display: inline-flex; align-items: center; gap: 6px; padding: 10px 20px; border-radius: var(--r-pill); background: var(--accent); color: #fff; font-size: 13px; font-weight: 650; }
+.ticket-check-list { display: grid; gap: 12px; }
+.ticket-check-item {
+    padding: 2px 12px 6px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface-soft);
+}
 
 /* ===== 底部导航 ===== */
 .tabbar {

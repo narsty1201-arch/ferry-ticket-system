@@ -54,13 +54,23 @@ public class CheckInServlet extends HttpServlet {
             return;
         }
         orderNo = orderNo.trim();
-        String err = dao.checkIn(orderNo, u.getId());
+        Integer ticketId = null;
+        String ticketIdText = req.getParameter("ticketId");
+        if (ticketIdText != null && !ticketIdText.trim().isEmpty()) {
+            try {
+                ticketId = Integer.valueOf(ticketIdText.trim());
+            } catch (NumberFormatException e) {
+                resp.sendRedirect(req.getContextPath() + "/seller/checkin?msg="
+                        + enc("船票编号格式不正确"));
+                return;
+            }
+        }
+        String err = dao.checkIn(orderNo, ticketId, u.getId());
         if (err != null) {
             resp.sendRedirect(req.getContextPath() + "/seller/checkin?msg=" + enc("检票失败：" + err)
                     + "&orderNo=" + enc(orderNo));
         } else {
-            Map<String, Object> detail = dao.findTicketDetail(orderNo);
-            req.setAttribute("detail", detail);
+            req.setAttribute("details", dao.findTicketDetails(orderNo));
             req.setAttribute("msg", "检票成功！乘客已登船");
             req.getRequestDispatcher("/seller/checkin_success.jsp").forward(req, resp);
         }

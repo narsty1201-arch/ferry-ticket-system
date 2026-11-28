@@ -16,8 +16,10 @@ public class Ticket {
     private String status;          // 待支付/已支付/已检票/已退票/已取消
     private String qrCode;
     private Timestamp createTime;
+    private boolean lockExpired;
     // 联表显示
     private String seatNo;
+    private String seatStatus;
     private String routeName;
     private String shipName;
     private Timestamp departTime;
@@ -44,8 +46,12 @@ public class Ticket {
     public void setQrCode(String qrCode) { this.qrCode = qrCode; }
     public Timestamp getCreateTime() { return createTime; }
     public void setCreateTime(Timestamp createTime) { this.createTime = createTime; }
+    public boolean isLockExpired() { return lockExpired; }
+    public void setLockExpired(boolean lockExpired) { this.lockExpired = lockExpired; }
     public String getSeatNo() { return seatNo; }
     public void setSeatNo(String seatNo) { this.seatNo = seatNo; }
+    public String getSeatStatus() { return seatStatus; }
+    public void setSeatStatus(String seatStatus) { this.seatStatus = seatStatus; }
     public String getRouteName() { return routeName; }
     public void setRouteName(String routeName) { this.routeName = routeName; }
     public String getShipName() { return shipName; }

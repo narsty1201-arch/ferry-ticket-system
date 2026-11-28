@@ -93,9 +93,18 @@ public class BookServlet extends HttpServlet {
                 orderDAO.releaseExpiredLocks();
 
                 int scheduleId = parseInt(req.getParameter("scheduleId"));
-                String seatNo = req.getParameter("seatNo");
                 Schedule sched = findSchedule(scheduleId);
-                int seatId = orderDAO.findSeatId(scheduleId, seatNo);
+                if (sched == null) {
+                    resp.sendRedirect(req.getContextPath() + listPath(loginUser)
+                            + "?msg=" + enc("班次不存在或已停止售票"));
+                    return;
+                }
+                List<String> seatNos = collectSeatNos(req);
+                if (seatNos.isEmpty() || seatNos.size() > OrderDAO.MAX_TICKETS_PER_ORDER) {
+                    resp.sendRedirect(req.getContextPath() + "/book?action=seats&scheduleId=" + scheduleId
+                            + "&msg=" + enc("请选择 1~" + OrderDAO.MAX_TICKETS_PER_ORDER + " 个不同座位"));
+                    return;
+                }
 
                 Order o = new Order();
                 o.setScheduleId(scheduleId);
@@ -104,10 +113,10 @@ public class BookServlet extends HttpServlet {
 
                 // 身份约束：乘客只能用本人档案信息购票（表单值一律忽略，防冒用他人身份）；
                 // 售票员代客购票可填乘客信息，但必须通过格式 + 校验位验证。
-                String pName = req.getParameter("passengerName");
-                String pId = req.getParameter("idCard");
-                String pPhone = req.getParameter("phone");
-                String idError;
+                String[] names = req.getParameterValues("passengerName");
+                String[] ids = req.getParameterValues("idCard");
+                String[] phones = req.getParameterValues("phone");
+                List<Ticket> tickets = new ArrayList<Ticket>();
                 if ("passenger".equals(loginUser.getRole())) {
                     User me = userDAO.findById(loginUser.getId());
                     if (me == null || !com.ferry.util.IdentityUtil.validIdCard(me.getIdCard())
@@ -116,45 +125,48 @@ public class BookServlet extends HttpServlet {
                                 + enc("请先在个人中心补全真实姓名、身份证和手机号后再购票"));
                         return;
                     }
-                    pName = me.getRealName();
-                    pId = me.getIdCard();
-                    pPhone = me.getPhone();
-                    idError = null;
-                } else {
-                    idError = com.ferry.util.IdentityUtil.validate(pName, pId, pPhone);
-                }
-                if (idError != null) {
-                    if ("passenger".equals(loginUser.getRole())) {
-                        resp.sendRedirect(req.getContextPath() + listPath(loginUser) + "?msg=" + enc(idError));
-                    } else {
-                        // 售票员校验失败时留在选座页，避免丢失已选座位和已填资料
-                        resp.sendRedirect(req.getContextPath() + "/book?action=seats&scheduleId=" + scheduleId
-                                + "&seatNo=" + enc(seatNo == null ? "" : seatNo)
-                                + "&msg=" + enc(idError));
+                    for (int i = 0; i < seatNos.size(); i++) {
+                        String pName = i == 0 ? me.getRealName() : valueAt(names, i);
+                        String pId = i == 0 ? me.getIdCard() : valueAt(ids, i);
+                        String pPhone = i == 0 ? me.getPhone() : valueAt(phones, i);
+                        String idError = com.ferry.util.IdentityUtil.validate(pName, pId, pPhone);
+                        if (idError != null) {
+                            resp.sendRedirect(req.getContextPath() + "/book?action=seats&scheduleId=" + scheduleId
+                                    + "&msg=" + enc("第 " + (i + 1) + " 位乘客：" + idError));
+                            return;
+                        }
+                        tickets.add(makeTicket(orderDAO, scheduleId, seatNos.get(i), pName, pId, pPhone, sched));
                     }
-                    return;
-                }
-
-                // 方案一：passenger_id 只表示“可选的注册乘客账号”。
-                // 乘客本人购票绑定本人账号；售票员代客购票按证件匹配，未注册则存 NULL，
-                // 真实乘客身份始终以 ticket 表的姓名/证件/手机为准。
-                if ("passenger".equals(loginUser.getRole())) {
                     o.setPassengerId(loginUser.getId());
                 } else {
-                    o.setPassengerId(userDAO.findPassengerIdByIdCard(pId));
+                    for (int i = 0; i < seatNos.size(); i++) {
+                        String pName = valueAt(names, i);
+                        String pId = valueAt(ids, i);
+                        String pPhone = valueAt(phones, i);
+                        String idError = com.ferry.util.IdentityUtil.validate(pName, pId, pPhone);
+                        if (idError != null) {
+                            resp.sendRedirect(req.getContextPath() + "/book?action=seats&scheduleId=" + scheduleId
+                                    + "&msg=" + enc("第 " + (i + 1) + " 位乘客：" + idError));
+                            return;
+                        }
+                        tickets.add(makeTicket(orderDAO, scheduleId, seatNos.get(i), pName, pId, pPhone, sched));
+                    }
+                    o.setPassengerId(userDAO.findPassengerIdByIdCard(valueAt(ids, 0)));
                 }
+                for (Ticket t : tickets) {
+                    if (t.getSeatId() <= 0) {
+                        resp.sendRedirect(req.getContextPath() + "/book?action=seats&scheduleId=" + scheduleId
+                                + "&msg=" + enc("座位不存在或已被占用，请刷新后重选"));
+                        return;
+                    }
+                }
+                java.math.BigDecimal total = sched.getPrice()
+                        .multiply(java.math.BigDecimal.valueOf(tickets.size()));
+                o.setTotalAmount(total);
 
-                Ticket t = new Ticket();
-                t.setSeatId(seatId);
-                t.setIdCard(pId.trim().toUpperCase());
-                t.setPassengerPhone(pPhone.trim());
-                t.setPassengerName(pName.trim());
-                t.setPrice(sched.getPrice());
-
-                int result = orderDAO.lockAndCreate(o, t);
+                int result = orderDAO.lockAndCreate(o, tickets);
                 if (result == -1) {
                     resp.sendRedirect(req.getContextPath() + "/book?action=seats&scheduleId=" + scheduleId
-                            + "&seatNo=" + enc(seatNo == null ? "" : seatNo)
                             + "&msg=" + enc("座位已被占用，请重新选择"));
                 } else if (result == -3) {
                     resp.sendRedirect(req.getContextPath() + listPath(loginUser)
@@ -165,9 +177,13 @@ public class BookServlet extends HttpServlet {
                 } else if (result == -2) {
                     resp.sendRedirect(req.getContextPath() + listPath(loginUser)
                             + "?msg=" + enc("该证件已购买此班次船票"));
+                } else if (result == -5) {
+                    resp.sendRedirect(req.getContextPath() + "/book?action=seats&scheduleId=" + scheduleId
+                            + "&msg=" + enc("订单票数或乘客信息不合法，请重新选择"));
                 } else {
                     resp.sendRedirect(req.getContextPath() + ordersPath(loginUser) + "?msg="
-                            + enc("锁座成功！订单号 " + o.getOrderNo() + "，请在5分钟内支付"));
+                            + enc("锁座成功！订单号 " + o.getOrderNo() + "，共 " + tickets.size()
+                                    + " 张，请在5分钟内支付"));
                 }
                 return;
             }
@@ -331,6 +347,39 @@ public class BookServlet extends HttpServlet {
     private int parseInt(String s) {
         try { return Integer.parseInt(s == null ? "0" : s.trim()); }
         catch (NumberFormatException e) { return 0; }
+    }
+
+    /** 支持 seatNo 单值、重复字段和逗号分隔三种提交方式。 */
+    private List<String> collectSeatNos(HttpServletRequest req) {
+        List<String> result = new ArrayList<String>();
+        String[] values = req.getParameterValues("seatNo");
+        if (values == null) values = new String[]{req.getParameter("seatNo")};
+        for (String value : values) {
+            if (value == null) continue;
+            for (String part : value.split(",")) {
+                String seatNo = part.trim();
+                if (seatNo.isEmpty()) continue;
+                if (!seatNo.matches("[A-Za-z0-9]{1,10}") || result.contains(seatNo)) return new ArrayList<String>();
+                result.add(seatNo);
+            }
+        }
+        return result;
+    }
+
+    private String valueAt(String[] values, int index) {
+        if (values == null || index < 0 || index >= values.length) return null;
+        return values[index];
+    }
+
+    private Ticket makeTicket(OrderDAO dao, int scheduleId, String seatNo,
+                              String name, String idCard, String phone, Schedule sched) {
+        Ticket t = new Ticket();
+        t.setSeatId(dao.findSeatId(scheduleId, seatNo));
+        t.setIdCard(idCard == null ? "" : idCard.trim().toUpperCase());
+        t.setPassengerPhone(phone == null ? "" : phone.trim());
+        t.setPassengerName(name == null ? "" : name.trim());
+        t.setPrice(sched.getPrice());
+        return t;
     }
 
     private String enc(String s) {

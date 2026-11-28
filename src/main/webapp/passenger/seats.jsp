@@ -1,7 +1,15 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
-<%@ page import="com.ferry.entity.Schedule,com.ferry.entity.SeatCell,java.util.List,java.util.Map,java.util.LinkedHashMap,java.util.ArrayList,java.text.SimpleDateFormat" %>
+<%@ page import="com.ferry.entity.Schedule,com.ferry.entity.SeatCell,com.ferry.entity.User,java.util.List,java.util.Map,java.util.LinkedHashMap,java.util.ArrayList,java.text.SimpleDateFormat" %>
+<%!
+    private static String h(String value) {
+        if (value == null) return "";
+        return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                .replace("\"", "&quot;").replace("'", "&#39;");
+    }
+%>
 <%
     if (session.getAttribute("loginUser") == null) { response.sendRedirect(request.getContextPath() + "/login.jsp"); return; }
+    User loginUser = (User) session.getAttribute("loginUser");
     Schedule s = (Schedule) request.getAttribute("sched");
     if (s == null) { response.sendRedirect(request.getContextPath() + "/passenger/schedules"); return; }
     @SuppressWarnings("unchecked")
@@ -93,39 +101,104 @@
 
         <div class="notice-line">
             <span class="ico ico-info ico-sm"></span>
-            <span>实名信息取自个人档案。座位锁定后请在 5 分钟内完成支付，超时自动释放。</span>
+            <span>本人信息取自个人档案，同行人需填写真实实名信息。最多可选 5 个座位，座位锁定后请在 5 分钟内完成支付。</span>
         </div>
-    </div>
-    <form method="post" action="${pageContext.request.contextPath}/book" onsubmit="return checkForm()">
+
+        <form id="orderForm" method="post" action="${pageContext.request.contextPath}/book" onsubmit="return checkForm()">
         <input type="hidden" name="action" value="order">
         <input type="hidden" name="scheduleId" value="<%= s.getId() %>">
         <input type="hidden" name="seatNo" id="seatNo" value="">
-        <div class="seat-action">
-            <div class="seat-action-line" id="seatSummary" aria-live="polite">
-                <span class="seat-badge"><span class="ico ico-seat"></span></span>
-                <span id="seatSummaryText">尚未选择座位</span>
-                <a class="seat-refresh" href="<%= ctx %>/book?action=seats&amp;scheduleId=<%= s.getId() %>"><span class="ico ico-refresh ico-sm"></span>刷新</a>
+        <div class="card" id="passengerBox">
+            <div class="panel-title">乘客信息 <span class="muted" id="passengerHint">请先选择座位</span></div>
+            <div class="passenger-card">
+                <div class="passenger-card-title">乘客 1（本人）</div>
+                <div class="form-line"><label>姓名</label>
+                    <input name="passengerName" value="<%= h(loginUser.getRealName()) %>" readonly></div>
+                <div class="form-line"><label>身份证号</label>
+                    <input name="idCard" value="<%= h(loginUser.getIdCard()) %>" readonly></div>
+                <div class="form-line"><label>手机号</label>
+                    <input name="phone" value="<%= h(loginUser.getPhone()) %>" readonly></div>
             </div>
-            <button type="submit" class="btn-primary">确认锁座下单</button>
+            <% for (int i = 2; i <= 5; i++) { %>
+            <div class="passenger-card" hidden>
+                <div class="passenger-card-title">乘客 <%= i %>（同行人）</div>
+                <div class="form-line"><label>姓名</label>
+                    <input name="passengerName" maxlength="20" placeholder="请输入同行人姓名"></div>
+                <div class="form-line"><label>身份证号</label>
+                    <input name="idCard" maxlength="18" placeholder="请输入 18 位身份证号"></div>
+                <div class="form-line"><label>手机号</label>
+                    <input name="phone" maxlength="11" placeholder="13800000000"></div>
+            </div>
+            <% } %>
         </div>
-    </form>
+        </form>
+    </div>
+    <div class="seat-action">
+        <div class="seat-action-line" id="seatSummary" aria-live="polite">
+            <span class="seat-badge"><span class="ico ico-seat"></span></span>
+            <span id="seatSummaryText">尚未选择座位</span>
+            <a class="seat-refresh" href="<%= ctx %>/book?action=seats&amp;scheduleId=<%= s.getId() %>"><span class="ico ico-refresh ico-sm"></span>刷新</a>
+        </div>
+        <button type="submit" form="orderForm" class="btn-primary">确认锁座下单</button>
+    </div>
     <%@ include file="/WEB-INF/includes/passenger-tabbar.jspf" %>
 </div>
 <script>
-    var picked = null;
-    var price = '<%= s.getPrice() %>';
+    var picked = [];
+    var price = Number('<%= s.getPrice() %>');
     function pick(el){
-        if (picked) picked.classList.remove('sel');
-        el.classList.add('sel');
-        picked = el;
         var seat = el.getAttribute('data-seat');
-        document.getElementById('seatNo').value = seat;
-        document.getElementById('seatSummaryText').innerHTML = '<b>已选 ' + seat + '</b> · ￥' + price;
-        document.getElementById('seatSummary').classList.add('has-seat');
+        var index = picked.indexOf(seat);
+        if (index >= 0) {
+            picked.splice(index, 1);
+            el.classList.remove('sel');
+        } else {
+            if (picked.length >= 5) { alert('一个订单最多选择 5 个座位'); return; }
+            picked.push(seat);
+            el.classList.add('sel');
+        }
+        picked.sort();
+        document.getElementById('seatNo').value = picked.join(',');
+        var summary = document.getElementById('seatSummary');
+        var text = document.getElementById('seatSummaryText');
+        if (picked.length === 0) {
+            text.innerHTML = '尚未选择座位';
+            summary.classList.remove('has-seat');
+        } else {
+            text.innerHTML = '<b>已选 ' + picked.join('、') + '</b> · ￥' +
+                (price * picked.length).toFixed(2);
+            summary.classList.add('has-seat');
+        }
+        syncPassengerCards();
+    }
+    function syncPassengerCards(){
+        var cards = document.querySelectorAll('.passenger-card');
+        var count = Math.max(picked.length, 1);
+        for (var i = 0; i < cards.length; i++) cards[i].hidden = i >= count;
+        document.getElementById('passengerHint').textContent =
+            picked.length ? '已选 ' + picked.length + ' 人，请完善同行人信息' : '请先选择座位';
     }
     function checkForm(){
-        if (!document.getElementById('seatNo').value){ alert('请先选择一个座位'); return false; }
+        if (!picked.length){ alert('请至少选择一个座位'); return false; }
+        var cards = document.querySelectorAll('.passenger-card');
+        for (var i = 0; i < picked.length; i++) {
+            var name = cards[i].querySelector('input[name="passengerName"]').value.trim();
+            var id = cards[i].querySelector('input[name="idCard"]').value.trim();
+            var phone = cards[i].querySelector('input[name="phone"]').value.trim();
+            if (name.length < 2 || name.length > 20) { alert('第 ' + (i + 1) + ' 位乘客姓名需为 2~20 个字符'); return false; }
+            if (!/^\d{17}[0-9Xx]$/.test(id) || !idCardValid(id)) { alert('第 ' + (i + 1) + ' 位乘客身份证号不正确'); return false; }
+            if (!/^1\d{10}$/.test(phone)) { alert('第 ' + (i + 1) + ' 位乘客手机号需为 11 位'); return false; }
+        }
         return true;
+    }
+    function idCardValid(v){
+        v = (v || '').toUpperCase();
+        if (!/^\d{17}[0-9X]$/.test(v)) return false;
+        var w = [7,9,10,5,8,4,2,1,6,3,7,9,10,5,8,4,2];
+        var c = ['1','0','X','9','8','7','6','5','4','3','2'];
+        var sum = 0;
+        for (var i = 0; i < 17; i++) sum += parseInt(v.charAt(i), 10) * w[i];
+        return c[sum % 11] === v.charAt(17);
     }
     (function(){
         var pre = '<%= preselect %>';

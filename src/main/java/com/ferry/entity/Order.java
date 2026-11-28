@@ -2,6 +2,8 @@ package com.ferry.entity;
 
 import java.math.BigDecimal;
 import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.List;
 
 /** 订单实体：对应数据库 [order] 表 */
 public class Order {
@@ -28,6 +30,7 @@ public class Order {
     private Timestamp departTime;
     private String seatNo;
     private String passengerName;
+    private List<Ticket> tickets = new ArrayList<Ticket>();
 
     public int getId() { return id; }
     public void setId(int id) { this.id = id; }
@@ -73,4 +76,7 @@ public class Order {
     public void setSeatNo(String seatNo) { this.seatNo = seatNo; }
     public String getPassengerName() { return passengerName; }
     public void setPassengerName(String passengerName) { this.passengerName = passengerName; }
+    public List<Ticket> getTickets() { return tickets; }
+    public void setTickets(List<Ticket> tickets) { this.tickets = tickets == null ? new ArrayList<Ticket>() : tickets; }
+    public int getTicketCount() { return tickets == null ? 0 : tickets.size(); }
 }

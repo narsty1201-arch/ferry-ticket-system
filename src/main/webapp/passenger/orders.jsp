@@ -1,5 +1,5 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
-<%@ page import="com.ferry.entity.Order,java.util.List,java.text.SimpleDateFormat" %>
+<%@ page import="com.ferry.entity.Order,com.ferry.entity.Ticket,java.util.List,java.text.SimpleDateFormat" %>
 <%
     if (session.getAttribute("loginUser") == null) { response.sendRedirect(request.getContextPath() + "/login.jsp"); return; }
     @SuppressWarnings("unchecked")
@@ -49,7 +49,16 @@
             </div>
             <% } %>
             <div class="order-title"><%= o.getRouteName() %>　<%= o.getShipName() %></div>
-            <div class="muted">发船 <%= fmt.format(o.getDepartTime()) %>　座位 <%= o.getSeatNo()==null?"-":o.getSeatNo() %></div>
+            <div class="muted">发船 <%= fmt.format(o.getDepartTime()) %>　座位 <%= o.getSeatNo()==null?"-":o.getSeatNo() %>　共 <%= o.getTicketCount() %> 张</div>
+            <% if (o.getTicketCount() > 0) { %>
+            <div class="ticket-lines">
+                <% for (Ticket t : o.getTickets()) { %>
+                <div><span class="muted"><%= t.getSeatNo() == null ? "-" : t.getSeatNo() %> 座</span>
+                    <%= t.getPassengerName() == null ? "-" : t.getPassengerName() %>
+                    <span class="muted">（<%= t.getStatus() %>）</span></div>
+                <% } %>
+            </div>
+            <% } %>
             <div class="amount">金额 ￥<%= o.getTotalAmount() %>
                 <% if (o.getRefundAmount() != null) { %>　<span class="refund">实退 ￥<%= o.getRefundAmount() %></span><% } %>
             </div>
@@ -95,7 +104,7 @@
             <% } %>
 
             <%
-                boolean canChange = "已支付".equals(st) && o.getDepartTime() != null
+                boolean canChange = "已支付".equals(st) && o.getTicketCount() <= 1 && o.getDepartTime() != null
                         && o.getDepartTime().after(new java.util.Date());
                 java.util.List<String> validChanges = new java.util.ArrayList<String>();
                 if (canChange) {

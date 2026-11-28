@@ -1,10 +1,10 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
-<%@ page import="java.util.Map" %>
+<%@ page import="java.util.List,java.util.Map" %>
 <%
     if (session.getAttribute("loginUser") == null) { response.sendRedirect(request.getContextPath() + "/login.jsp"); return; }
     @SuppressWarnings("unchecked")
-    Map<String,Object> d = (Map<String,Object>) request.getAttribute("detail");
-    if (d == null) d = new java.util.HashMap<String,Object>();
+    List<Map<String,Object>> details = (List<Map<String,Object>>) request.getAttribute("details");
+    if (details == null) details = new java.util.ArrayList<Map<String,Object>>();
 %>
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -22,14 +22,24 @@
         <div class="ticket">
             <div class="top"><span class="ico ico-check-circle"></span><h2>检票成功 · 准予登船</h2></div>
             <div class="body">
-                <div class="row"><span>订单号</span><span><%= d.get("order_no") %></span></div>
-                <div class="row"><span>航线</span><span><%= d.get("start_port") %> → <%= d.get("end_port") %></span></div>
-                <div class="row"><span>班次</span><span><%= d.get("route_name") %> <%= d.get("depart_time") %></span></div>
-                <div class="row"><span>乘客</span><span><%= d.get("passenger_name") %></span></div>
-                <div class="row"><span>身份证</span><span><%= d.get("id_card") %></span></div>
-                <div class="row"><span>座位</span><span><%= d.get("seat_no") %></span></div>
-                <div class="row"><span>检票时间</span><span><%= d.get("check_time") %></span></div>
-                <div class="row"><span>检票员</span><span><%= d.get("seller_name") %></span></div>
+                <% if (!details.isEmpty()) {
+                    Map<String,Object> first = details.get(0); %>
+                <div class="row"><span>订单号</span><span><%= first.get("order_no") %></span></div>
+                <div class="row"><span>航线</span><span><%= first.get("start_port") %> → <%= first.get("end_port") %></span></div>
+                <div class="row"><span>班次</span><span><%= first.get("route_name") %> <%= first.get("depart_time") %></span></div>
+                <% } %>
+                <div class="ticket-check-list">
+                    <% for (Map<String,Object> d : details) { %>
+                    <div class="ticket-check-item">
+                        <div class="row"><span>乘客</span><span><%= d.get("passenger_name") %></span></div>
+                        <div class="row"><span>身份证</span><span><%= d.get("id_card") %></span></div>
+                        <div class="row"><span>座位</span><span><%= d.get("seat_no") %></span></div>
+                        <div class="row"><span>票状态</span><span><%= d.get("ticket_status") %></span></div>
+                        <div class="row"><span>检票时间</span><span><%= d.get("check_time") %></span></div>
+                        <div class="row"><span>检票员</span><span><%= d.get("seller_name") %></span></div>
+                    </div>
+                    <% } %>
+                </div>
                 <div class="act">
                     <a href="${pageContext.request.contextPath}/seller/checkin"><span class="ico ico-check ico-sm"></span>继续检票下一位</a>
                 </div>

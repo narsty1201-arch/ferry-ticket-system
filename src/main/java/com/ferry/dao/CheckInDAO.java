@@ -17,79 +17,109 @@ public class CheckInDAO {
 
     /**
      * 检票：按订单号校验并检票，全事务。
+     * ticketId 为 null 时检该订单全部“已支付”票；指定 ticketId 时只检一张，
+     * 支持多票订单逐票检票。全部票检完后订单状态才变为“已检票”。
      * 返回 null 表示成功；否则返回失败原因。
      */
     public String checkIn(String orderNo, int sellerId) {
+        return checkIn(orderNo, null, sellerId);
+    }
+
+    public String checkIn(String orderNo, Integer ticketId, int sellerId) {
         Connection conn = null;
         try {
             conn = DBUtil.getConnection();
             conn.setAutoCommit(false);
 
-            // 1. 查订单 + 票 + 班次（UPDLOCK 锁订单防并发重复检票）
-            int orderId = 0, ticketId = 0;
-            String orderStatus = null, ticketStatus = null;
-            Timestamp departTime = null;
-            String passengerName = null, seatNo = null, routeName = null;
-            String sql = "SELECT o.id AS order_id, o.status AS order_status, "
-                       + "t.id AS ticket_id, t.status AS ticket_status, t.passenger_name, "
-                       + "s.depart_time, se.seat_no, r.route_name "
-                       + "FROM [order] o WITH (UPDLOCK) "
-                       + "JOIN ticket t ON t.order_id=o.id "
-                       + "JOIN schedule s ON s.id=o.schedule_id "
-                       + "JOIN route r ON r.id=s.route_id "
-                       + "LEFT JOIN seat se ON se.id=t.seat_id "
-                       + "WHERE o.order_no=?";
+            // 1. 锁订单，并锁住订单内全部船票，防止并发重复检票。
+            int orderId;
+            String orderStatus;
+            String sql = "SELECT id, status FROM [order] WITH (UPDLOCK, HOLDLOCK) WHERE order_no=?";
             try (PreparedStatement ps = conn.prepareStatement(sql)) {
                 ps.setString(1, orderNo);
                 try (ResultSet rs = ps.executeQuery()) {
                     if (!rs.next()) { conn.rollback(); return "订单号不存在：" + orderNo; }
-                    orderId = rs.getInt("order_id");
-                    orderStatus = rs.getString("order_status");
-                    ticketId = rs.getInt("ticket_id");
-                    ticketStatus = rs.getString("ticket_status");
-                    passengerName = rs.getString("passenger_name");
-                    departTime = rs.getTimestamp("depart_time");
-                    seatNo = rs.getString("seat_no");
-                    routeName = rs.getString("route_name");
+                    orderId = rs.getInt("id");
+                    orderStatus = rs.getString("status");
                 }
             }
 
             // 2. 校验状态
-            if ("已检票".equals(orderStatus)) { conn.rollback(); return "该订单已检票，请勿重复检票"; }
             if ("已退票".equals(orderStatus) || "已取消".equals(orderStatus)) {
                 conn.rollback(); return "该订单已退票/取消，不能检票";
             }
             if ("待支付".equals(orderStatus)) { conn.rollback(); return "该订单尚未支付，不能检票"; }
-            if (!"已支付".equals(orderStatus)) { conn.rollback(); return "订单状态异常（" + orderStatus + "），不能检票"; }
+            if (!"已支付".equals(orderStatus) && !"已检票".equals(orderStatus)) {
+                conn.rollback();
+                return "订单状态异常（" + orderStatus + "），不能检票";
+            }
 
-            // 3. 是否已检票过（防重复）
-            try (PreparedStatement ps = conn.prepareStatement(
-                    "SELECT COUNT(*) FROM check_in WHERE ticket_id=? AND status=N'成功'")) {
-                ps.setInt(1, ticketId);
+            int checkedCount = 0;
+            int waitingCount = 0;
+            String ticketSql = "SELECT t.id, t.status FROM ticket t WITH (UPDLOCK, HOLDLOCK) "
+                             + "WHERE t.order_id=?"
+                             + (ticketId == null ? "" : " AND t.id=?")
+                             + " ORDER BY t.id";
+            try (PreparedStatement ps = conn.prepareStatement(ticketSql)) {
+                ps.setInt(1, orderId);
+                if (ticketId != null) ps.setInt(2, ticketId);
                 try (ResultSet rs = ps.executeQuery()) {
-                    if (rs.next() && rs.getInt(1) > 0) { conn.rollback(); return "该船票已检票，请勿重复检票"; }
+                    while (rs.next()) {
+                        int id = rs.getInt("id");
+                        String status = rs.getString("status");
+                        if ("已检票".equals(status)) {
+                            checkedCount++;
+                            continue;
+                        }
+                        if (!"已支付".equals(status)) {
+                            conn.rollback();
+                            return "存在不可检票的船票（" + status + "），整单检票已中止";
+                        }
+                        try (PreparedStatement ins = conn.prepareStatement(
+                                "INSERT INTO check_in(ticket_id, seller_id, check_time, status) "
+                              + "VALUES (?,?,GETDATE(),N'成功')")) {
+                            ins.setInt(1, id);
+                            ins.setInt(2, sellerId);
+                            ins.executeUpdate();
+                        }
+                        try (PreparedStatement upd = conn.prepareStatement(
+                                "UPDATE ticket SET status=N'已检票' WHERE id=? AND status=N'已支付'")) {
+                            upd.setInt(1, id);
+                            if (upd.executeUpdate() != 1) {
+                                throw new SQLException("船票状态已变化，检票失败");
+                            }
+                        }
+                        waitingCount++;
+                    }
                 }
             }
+            if (ticketId != null && waitingCount == 0 && checkedCount == 0) {
+                conn.rollback();
+                return "该订单中不存在指定船票";
+            }
+            if (waitingCount == 0) {
+                conn.rollback();
+                return ticketId == null ? "该订单已全部检票，请勿重复检票" : "该船票已检票，请勿重复检票";
+            }
 
-            // 4. 写检票记录
+            // 只有订单内所有票都已检票时才把订单标为已检票。
             try (PreparedStatement ps = conn.prepareStatement(
-                    "INSERT INTO check_in(ticket_id, seller_id, check_time, status) VALUES (?,?,GETDATE(),N'成功')")) {
-                ps.setInt(1, ticketId);
-                ps.setInt(2, sellerId);
-                ps.executeUpdate();
-            }
-            // 5. 更新票和订单状态
-            try (PreparedStatement ps = conn.prepareStatement(
-                    "UPDATE ticket SET status=N'已检票' WHERE id=?")) {
-                ps.setInt(1, ticketId); ps.executeUpdate();
-            }
-            try (PreparedStatement ps = conn.prepareStatement(
-                    "UPDATE [order] SET status=N'已检票' WHERE id=?")) {
-                ps.setInt(1, orderId); ps.executeUpdate();
+                    "SELECT COUNT(*) AS total, "
+                  + "SUM(CASE WHEN status=N'已检票' THEN 1 ELSE 0 END) AS checked "
+                  + "FROM ticket WHERE order_id=?")) {
+                ps.setInt(1, orderId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    rs.next();
+                    if (rs.getInt("checked") == rs.getInt("total")) {
+                        try (PreparedStatement upd = conn.prepareStatement(
+                                "UPDATE [order] SET status=N'已检票' WHERE id=?")) {
+                            upd.setInt(1, orderId);
+                            upd.executeUpdate();
+                        }
+                    }
+                }
             }
             conn.commit();
-
-            // 成功信息：航线+乘客+座位
             return null;
         } catch (SQLException e) {
             if (conn != null) { try { conn.rollback(); } catch (Exception ignored) {} }
@@ -103,11 +133,12 @@ public class CheckInDAO {
         }
     }
 
-    /** 查询检票成功后的票详情（供成功页展示） */
-    public Map<String, Object> findTicketDetail(String orderNo) {
-        Map<String, Object> m = new HashMap<String, Object>();
+    /** 查询检票成功后的全部票详情（多票订单逐票展示）。 */
+    public List<Map<String, Object>> findTicketDetails(String orderNo) {
+        List<Map<String, Object>> list = new ArrayList<Map<String, Object>>();
         String sql = "SELECT o.order_no, t.passenger_name, t.id_card, t.passenger_phone, "
-                   + "se.seat_no, r.route_name, r.start_port, r.end_port, "
+                   + "t.id AS ticket_id, t.status AS ticket_status, se.seat_no, "
+                   + "r.route_name, r.start_port, r.end_port, "
                    + "CONVERT(varchar(16), s.depart_time, 120) AS depart_time, "
                    + "CONVERT(varchar(19), ci.check_time, 120) AS check_time, "
                    + "u.real_name AS seller_name "
@@ -117,22 +148,33 @@ public class CheckInDAO {
                    + "LEFT JOIN seat se ON se.id=t.seat_id "
                    + "LEFT JOIN check_in ci ON ci.ticket_id=t.id AND ci.status=N'成功' "
                    + "LEFT JOIN [user] u ON u.id=ci.seller_id "
-                   + "WHERE o.order_no=?";
+                   + "WHERE o.order_no=? ORDER BY t.id";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, orderNo);
             try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    String[] cols = {"order_no","passenger_name","id_card","passenger_phone",
-                                     "seat_no","route_name","start_port","end_port",
-                                     "depart_time","check_time","seller_name"};
-                    for (String c : cols) m.put(c, rs.getString(c));
+                String[] cols = {"order_no","passenger_name","id_card","passenger_phone",
+                                 "ticket_id","ticket_status","seat_no","route_name",
+                                 "start_port","end_port","depart_time","check_time","seller_name"};
+                while (rs.next()) {
+                    Map<String, Object> m = new HashMap<String, Object>();
+                    for (String c : cols) {
+                        Object value = rs.getString(c);
+                        m.put(c, value == null ? "" : value);
+                    }
+                    list.add(m);
                 }
             }
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        return m;
+        return list;
+    }
+
+    /** 单票兼容入口：返回第一张票。 */
+    public Map<String, Object> findTicketDetail(String orderNo) {
+        List<Map<String, Object>> list = findTicketDetails(orderNo);
+        return list.isEmpty() ? new HashMap<String, Object>() : list.get(0);
     }
 
     /** 检票记录总数（分页用） */
