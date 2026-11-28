@@ -5,7 +5,7 @@
     String __navUri = __navForward != null ? __navForward : request.getRequestURI();
     boolean __home = __navUri.endsWith("/passenger/home");
     boolean __schedules = __navUri.endsWith("/passenger/schedules") || __navUri.endsWith("/book");
-    boolean __orders = __navUri.endsWith("/passenger/orders");
+    boolean __orders = __navUri.endsWith("/passenger/orders") || __navUri.endsWith("/passenger/tickets");
     boolean __profile = __navUri.endsWith("/passenger/profile");
 %>
 <nav class="tabbar" aria-label="乘客端主导航">

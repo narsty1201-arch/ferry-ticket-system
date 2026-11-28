@@ -1307,6 +1307,31 @@ public class OrderDAO {
         return tickets;
     }
 
+    /** 乘客“我的船票”：只返回当前账号名下仍有效的票（已支付/已检票）。 */
+    public List<Ticket> findValidTicketsByPassenger(int passengerId) {
+        List<Ticket> tickets = new ArrayList<Ticket>();
+        String sql = "SELECT t.*, se.seat_no, o.order_no, r.route_name, r.start_port, r.end_port, "
+                   + "sh.ship_name, s.depart_time, s.status AS schedule_status "
+                   + "FROM ticket t "
+                   + "JOIN [order] o ON o.id=t.order_id "
+                   + "JOIN schedule s ON s.id=t.schedule_id "
+                   + "JOIN route r ON r.id=s.route_id "
+                   + "JOIN ship sh ON sh.id=s.ship_id "
+                   + "LEFT JOIN seat se ON se.id=t.seat_id "
+                   + "WHERE o.passenger_id=? AND t.status IN (N'已支付',N'已检票') "
+                   + "ORDER BY s.depart_time, t.id";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, passengerId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) tickets.add(mapTicket(rs));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return tickets;
+    }
+
     private Ticket mapTicket(ResultSet rs) throws SQLException {
         Ticket t = new Ticket();
         t.setId(rs.getInt("id"));
@@ -1321,6 +1346,13 @@ public class OrderDAO {
         t.setQrCode(rs.getString("qr_code"));
         t.setCreateTime(rs.getTimestamp("create_time"));
         t.setSeatNo(rs.getString("seat_no"));
+        try { t.setOrderNo(rs.getString("order_no")); } catch (SQLException ignored) { }
+        try { t.setRouteName(rs.getString("route_name")); } catch (SQLException ignored) { }
+        try { t.setStartPort(rs.getString("start_port")); } catch (SQLException ignored) { }
+        try { t.setEndPort(rs.getString("end_port")); } catch (SQLException ignored) { }
+        try { t.setShipName(rs.getString("ship_name")); } catch (SQLException ignored) { }
+        try { t.setDepartTime(rs.getTimestamp("depart_time")); } catch (SQLException ignored) { }
+        try { t.setScheduleStatus(rs.getString("schedule_status")); } catch (SQLException ignored) { }
         return t;
     }
 

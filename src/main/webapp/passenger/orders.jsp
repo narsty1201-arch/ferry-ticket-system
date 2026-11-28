@@ -29,6 +29,8 @@
 <div class="phone">
     <div class="phone-head"><span class="ico ico-orders"></span>我的订单</div>
     <div class="phone-body">
+        <a class="big-btn" href="${pageContext.request.contextPath}/passenger/tickets"
+           style="margin-bottom:12px"><span class="ico ico-ticket"></span>查看我的船票与检票票码</a>
         <% if (msg != null && !msg.isEmpty()) { %><p class="msg ok"><%= msg %></p><% } %>
         <% if (orders.isEmpty()) { %><div class="card muted"><span class="ico ico-info"></span> 暂无订单，快去<a href="${pageContext.request.contextPath}/passenger/schedules">查询班次</a>购票吧。</div><% } %>
 

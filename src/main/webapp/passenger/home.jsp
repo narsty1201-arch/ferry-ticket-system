@@ -36,10 +36,10 @@
                 <b>个人中心</b>
                 <span>核对实名购票资料</span>
             </a>
-            <a class="quick-tile" href="${pageContext.request.contextPath}/passenger/orders">
+            <a class="quick-tile" href="${pageContext.request.contextPath}/passenger/tickets">
                 <span class="ico ico-ticket"></span>
-                <b>待支付订单</b>
-                <span>5 分钟内完成支付</span>
+                <b>我的船票</b>
+                <span>查看座位与检票票码</span>
             </a>
         </div>
     </div>

@@ -104,6 +104,16 @@ public class OrderMultiTicketTest {
         assertEquals(3, soldSeats());
         for (int seatId : seatIds) assertEquals("已售", seatStatus(seatId));
 
+        List<Ticket> myTickets = orderDAO.findValidTicketsByPassenger(passengerId);
+        assertEquals(3, myTickets.size());
+        for (Ticket ticket : myTickets) {
+            assertEquals(order.getOrderNo(), ticket.getOrderNo());
+            assertEquals("A港", ticket.getStartPort());
+            assertEquals("B港", ticket.getEndPort());
+            assertEquals("多票航线-" + tag, ticket.getRouteName());
+            assertNotNull(ticket.getSeatNo());
+        }
+
         BigDecimal refund = orderDAO.refund(orderId, "多票整单退票");
         assertEquals(new BigDecimal("300.00"), refund);
         assertEquals("已退票", orderStatus(orderId));

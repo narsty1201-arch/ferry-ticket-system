@@ -20,6 +20,10 @@ public class Ticket {
     // 联表显示
     private String seatNo;
     private String seatStatus;
+    private String orderNo;
+    private String startPort;
+    private String endPort;
+    private String scheduleStatus;
     private String routeName;
     private String shipName;
     private Timestamp departTime;
@@ -52,6 +56,14 @@ public class Ticket {
     public void setSeatNo(String seatNo) { this.seatNo = seatNo; }
     public String getSeatStatus() { return seatStatus; }
     public void setSeatStatus(String seatStatus) { this.seatStatus = seatStatus; }
+    public String getOrderNo() { return orderNo; }
+    public void setOrderNo(String orderNo) { this.orderNo = orderNo; }
+    public String getStartPort() { return startPort; }
+    public void setStartPort(String startPort) { this.startPort = startPort; }
+    public String getEndPort() { return endPort; }
+    public void setEndPort(String endPort) { this.endPort = endPort; }
+    public String getScheduleStatus() { return scheduleStatus; }
+    public void setScheduleStatus(String scheduleStatus) { this.scheduleStatus = scheduleStatus; }
     public String getRouteName() { return routeName; }
     public void setRouteName(String routeName) { this.routeName = routeName; }
     public String getShipName() { return shipName; }
